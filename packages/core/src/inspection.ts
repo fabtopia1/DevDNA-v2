@@ -1,7 +1,10 @@
 import { collectEvidence } from './capture/collectors.js';
 import type { RawDeviceSnapshot } from './capture/snapshot.js';
 import { EvidenceLedger } from './evidence/ledger.js';
-import type { EvidenceRecord } from './evidence/types.js';
+import { EvidenceSubject, type EvidenceRecord } from './evidence/types.js';
+import { inferMarketingCapacityGb, resolveDevice } from './catalog/devices.js';
+import { resolveRegion } from './catalog/regions.js';
+import { decodeModelNumber, UnitProvenanceClass } from './catalog/identifiers.js';
 import { ProvenanceEngine, type AuditEntry, type Violation } from './inference/provenance.js';
 import { ModuleId, Severity, type Finding, type ModuleResult } from './inference/types.js';
 import { runIdentityEngine, type IdentityDetail, type IdentityVerdict } from './modules/identity.js';
@@ -17,9 +20,32 @@ import { runTrustEngine, type TrustAssessment } from './modules/trust.js';
  */
 export const ENGINE_VERSION = '2.0.0';
 
+/**
+ * The handful of facts every consumer needs for a header line.
+ *
+ * Derived once here rather than re-derived by the CLI, the API, the PDF and the
+ * dashboard, which is how they drift apart. Identifiers are carried raw; the
+ * API masks or hashes them on the way to storage.
+ */
+export interface DeviceSummary {
+  productType: string | null;
+  marketingName: string | null;
+  modelRecognised: boolean;
+  capacityGb: number | null;
+  iosVersion: string | null;
+  buildVersion: string | null;
+  regionCode: string | null;
+  regionName: string | null;
+  serialNumber: string | null;
+  imei: string | null;
+  udid: string | null;
+  unitProvenance: UnitProvenanceClass;
+}
+
 export interface InspectionReport {
   engineVersion: string;
   inspectedAt: string;
+  device: DeviceSummary;
   /** Digest of the ledger this report was computed from. */
   ledgerDigest: string;
   /** The raw evidence. Persisted separately from every conclusion below. */
@@ -147,6 +173,7 @@ export function evaluate(source: EvidenceLedger, options: EvaluateOptions = {}):
   return {
     engineVersion: ENGINE_VERSION,
     inspectedAt: at,
+    device: summariseDevice(ledger),
     ledgerDigest: ledger.digest(),
     evidence: ledger.all(),
     modules: {
@@ -176,6 +203,29 @@ export function evaluateStoredEvidence(
   options: EvaluateOptions = {},
 ): InspectionReport {
   return evaluate(EvidenceLedger.from(records), options);
+}
+
+function summariseDevice(ledger: EvidenceLedger): DeviceSummary {
+  const productType = ledger.string(EvidenceSubject.DEVICE, 'ProductType') ?? null;
+  const device = resolveDevice(productType);
+  const region = resolveRegion(ledger.string(EvidenceSubject.DEVICE, 'RegionInfo') ?? null);
+  const modelNumber = decodeModelNumber(ledger.string(EvidenceSubject.DEVICE, 'ModelNumber'));
+  const capacityBytes = ledger.number(EvidenceSubject.DEVICE, 'TotalDiskCapacity') ?? null;
+
+  return {
+    productType,
+    marketingName: device.recognised ? device.marketingName : null,
+    modelRecognised: device.recognised,
+    capacityGb: inferMarketingCapacityGb(capacityBytes),
+    iosVersion: ledger.string(EvidenceSubject.SYSTEM_SOFTWARE, 'ProductVersion') ?? null,
+    buildVersion: ledger.string(EvidenceSubject.SYSTEM_SOFTWARE, 'BuildVersion') ?? null,
+    regionCode: region.code,
+    regionName: region.name,
+    serialNumber: ledger.string(EvidenceSubject.DEVICE, 'SerialNumber') ?? null,
+    imei: ledger.string(EvidenceSubject.DEVICE, 'InternationalMobileEquipmentIdentity') ?? null,
+    udid: ledger.string(EvidenceSubject.DEVICE, 'UniqueDeviceID') ?? null,
+    unitProvenance: modelNumber.provenanceClass,
+  };
 }
 
 function logModule(provenance: ProvenanceEngine, at: string, result: ModuleResult): void {

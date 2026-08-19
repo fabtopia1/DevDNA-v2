@@ -34,36 +34,68 @@ enum InspectionStatus {
   FAILED
 }
 
-enum VerificationStatus {
-  VERIFIED
-  VERIFIED_WITH_NOTES
+enum TrustVerdict {
+  TRUSTED
+  TRUSTED_WITH_NOTES
   CAUTION
-  FLAGGED
-  INCONCLUSIVE
+  UNTRUSTED
+  INSUFFICIENT_EVIDENCE
 }
 
-enum PartComponent {
-  DISPLAY
+enum ModuleId {
+  IDENTITY
+  HARDWARE_CONSISTENCY
+  SERVICE_EVIDENCE
+  BATTERY_INTELLIGENCE
+  SECURITY_DNA
+  TRUST
+}
+
+enum Determinacy {
+  DETERMINED
+  INDETERMINATE
+}
+
+enum FindingBasis {
+  EVIDENCE
+  ABSENCE
+}
+
+/// Subjects an evidence record or verdict can be about.
+enum EvidenceSubject {
+  DEVICE
+  SYSTEM_SOFTWARE
+  SECURITY_STATE
   BATTERY
+  DISPLAY
   REAR_CAMERA
   FRONT_CAMERA
   FACE_ID
   TOUCH_ID
-  REAR_HOUSING
   LOGIC_BOARD
+  REAR_HOUSING
   LIDAR
   SPEAKER
   MICROPHONE
   TAPTIC_ENGINE
 }
 
-enum PartVerdict {
-  GENUINE_APPLE_PART
-  USED_APPLE_PART
-  UNKNOWN_PART
-  UNVERIFIED_PART
+/// The Service Evidence Engine's entire vocabulary. Deliberately three values:
+/// it reports whether a component was replaced, never whether a repair
+/// "happened" in some looser sense, and never invents a fourth hedge.
+enum ServiceVerdict {
+  ORIGINAL_LIKELY
+  REPLACED_LIKELY
   CANNOT_DETERMINE
-  NOT_APPLICABLE
+}
+
+/// Authenticity of a fitted part. Orthogonal to whether it was replaced, and
+/// stored separately for exactly that reason.
+enum PartAuthenticity {
+  GENUINE_APPLE
+  GENUINE_TRANSPLANTED
+  NOT_VERIFIED
+  UNKNOWN
 }
 
 enum Severity {
@@ -222,6 +254,12 @@ model Customer {
   @@map("customers")
 }
 
+/// One inspection.
+///
+/// The row carries the *conclusions* and the summary fields queries need. The
+/// *evidence* lives in its own table, and the two are deliberately not mixed:
+/// a conclusion can always be traced back to rows in `evidence_records`, and
+/// the evidence can be re-scored without the conclusions being in the way.
 model Inspection {
   id             String   @id @default(cuid())
   organizationId String
@@ -230,28 +268,47 @@ model Inspection {
   bridgeId       String?
   customerId     String?
 
-  status             InspectionStatus   @default(COMPLETE)
-  verificationStatus VerificationStatus
-  trustScore         Int
-  rawTrustScore      Int
-  confidence         Float
-  batteryScore       Int
-  softwareScore      Int
-  partsScore         Int
-  partsCoverage      Float
+  status InspectionStatus @default(COMPLETE)
 
-  batteryHealthPercent Int?
-  batteryCycleCount    Int?
-  iosVersion           String?
-  buildVersion         String?
+  // --- Trust Engine output -------------------------------------------------
+  trustVerdict  TrustVerdict
+  trustScore    Int
+  /// Score before gates, so a report can show what the caps cost.
+  rawTrustScore Int
+  confidence    Float
+  /// Share of the assessable picture that was actually established.
+  coverage      Float
+
+  // --- Module verdict summaries, denormalised for filtering ---------------
+  identityVerdict String?
+  hardwareVerdict String?
+  securityVerdict String?
+  batteryVerdict  String?
+
+  // --- Headline facts a list view needs without opening the JSON ----------
+  batteryHealthPercent      Int?
+  batteryCycleCount         Int?
+  batteryWearGrade          String?
+  batteryReplacementRisk    Float?
+  securityPostureScore      Int?
+  hardwareAnomalyCount      Int      @default(0)
+  componentsReplacedCount   Int      @default(0)
+  componentsIndeterminate   Int      @default(0)
+  iosVersion                String?
+  buildVersion              String?
+  unitProvenance            String?
 
   engineVersion    String
   algorithmVersion String
+  /// Digest of the evidence ledger this inspection was computed from. Lets a
+  /// stored ledger be proven unmodified before it is re-scored.
+  ledgerDigest     String
 
-  /// The verbatim bridge capture. Kept so any inspection can be re-scored.
+  /// The verbatim bridge capture. Kept for forensic re-collection only; the
+  /// ledger, not this, is what re-scoring reads.
   snapshot Json
-  /// The scored result as rendered to the technician at inspection time.
-  result   Json
+  /// Module details and the trust assessment, as rendered at inspection time.
+  report   Json
 
   capturedAt DateTime
   createdAt  DateTime @default(now())
@@ -261,48 +318,174 @@ model Inspection {
   user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   bridge       BridgeRegistration? @relation(fields: [bridgeId], references: [id], onDelete: SetNull)
   customer     Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  partResults  PartResultRecord[]
+
+  evidence     EvidenceRecordRow[]
+  inferences   InferenceRow[]
+  verdicts     ModuleVerdictRow[]
+  components   ComponentServiceRow[]
   findings     FindingRecord[]
+  auditEntries AuditEntryRow[]
   reports      Report[]
 
   @@index([organizationId, createdAt])
-  @@index([organizationId, verificationStatus])
+  @@index([organizationId, trustVerdict])
   @@index([deviceId, createdAt])
   @@map("inspections")
 }
 
-/// Per-component verdicts, denormalised out of the result JSON so the fleet
-/// analytics ("how many third-party displays did we see this month") are plain
-/// SQL rather than JSON traversal.
-model PartResultRecord {
-  id           String        @id @default(cuid())
+/// An observed fact, with its provenance. Never a conclusion.
+///
+/// Stored as rows rather than inside the report JSON so that evidence is
+/// queryable in its own right: "every device this month where the diagnostics
+/// relay refused" is the question a refurbisher actually asks, and it should be
+/// plain SQL.
+model EvidenceRecordRow {
+  id           String @id @default(cuid())
   inspectionId String
-  component    PartComponent
-  verdict      PartVerdict
+  /// Content-addressed id from the engine (`ev_...`). Unique per inspection.
+  evidenceId   String
+
+  kind    String
+  subject EvidenceSubject
+  key     String
+  /// Preserved with its original type rather than stringified, so re-scoring a
+  /// stored ledger reproduces the original result exactly.
+  value   Json
+
+  // --- Provenance: required on every record --------------------------------
+  sourceAuthority String
+  method          String
+  collector       String
+  observedAt      DateTime
+  reliability     Float
+  instrument      String?
+
+  /// Verbatim excerpt that produced this record.
+  raw  String?
+  note String?
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@unique([inspectionId, evidenceId])
+  @@index([inspectionId, subject])
+  @@index([key])
+  @@index([sourceAuthority, method])
+  @@map("evidence_records")
+}
+
+/// A derived claim. Cites evidence by id; never stands alone.
+model InferenceRow {
+  id           String @id @default(cuid())
+  inspectionId String
+  inferenceId  String
+
+  module     ModuleId
+  rule       String
+  subject    EvidenceSubject
+  direction  String
+  statement  String
+  weight     Float
+  confidence Float
+  /// Content-addressed evidence ids this inference rests on. Never empty.
+  evidenceIds String[]
+  derivedAt   DateTime
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@unique([inspectionId, inferenceId])
+  @@index([inspectionId, module])
+  @@index([rule])
+  @@map("inferences")
+}
+
+/// A module's conclusion about one subject. Cites the inferences behind it.
+model ModuleVerdictRow {
+  id           String @id @default(cuid())
+  inspectionId String
+  verdictId    String
+
+  module      ModuleId
+  subject     EvidenceSubject
+  value       String
+  determinacy Determinacy
+  confidence  Float
+  rationale   String
+  inferenceIds String[]
+  evidenceIds  String[]
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@unique([inspectionId, verdictId])
+  @@index([inspectionId, module])
+  @@index([module, value])
+  @@map("module_verdicts")
+}
+
+/// Per-component service outcome, denormalised so fleet analytics are plain
+/// SQL: "how many third-party displays did we see this month" should not need
+/// a JSON traversal.
+model ComponentServiceRow {
+  id           String @id @default(cuid())
+  inspectionId String
+
+  subject      EvidenceSubject
+  verdict      ServiceVerdict
+  authenticity PartAuthenticity
   confidence   Float
-  weight       Float
   rationale    String
 
   inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   @@index([inspectionId])
-  @@index([component, verdict])
-  @@map("part_results")
+  @@index([subject, verdict])
+  @@index([subject, authenticity])
+  @@map("component_service_results")
 }
 
+/// One step of how a report was produced, in order. Replayable.
+model AuditEntryRow {
+  id           String @id @default(cuid())
+  inspectionId String
+
+  sequence Int
+  at       DateTime
+  module   String
+  action   String
+  summary  String
+  refs     Json
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@unique([inspectionId, sequence])
+  @@index([inspectionId, sequence])
+  @@map("audit_entries")
+}
+
+/// A machine-readable finding.
+///
+/// Findings are conclusions too, so they cite their support. `basis` records
+/// whether that support is named evidence or a verifiable absence: some of the
+/// most important findings - "no attestation captured", "coverage too low" -
+/// are claims about what the ledger lacks and can cite nothing by
+/// construction. Modelling that explicitly keeps "unsupported" and "about
+/// absence" from being confused.
 model FindingRecord {
   id           String   @id @default(cuid())
   inspectionId String
   code         String
   severity     Severity
+  module       ModuleId
   title        String
   detail       String
-  source       String
+  basis        FindingBasis
+  evidenceIds  String[]
+  inferenceIds String[]
 
   inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   @@index([inspectionId])
   @@index([code])
+  @@index([module, severity])
   @@map("findings")
 }
 

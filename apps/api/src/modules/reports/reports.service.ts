@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { customAlphabet } from 'nanoid';
-import type { InspectionResult } from '@devdna/core';
+import type { InspectionReport } from '@devdna/core';
 import { PrismaService } from '../../common/prisma.service';
 import { AuditService } from '../../common/audit.service';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
@@ -39,9 +39,9 @@ export class ReportsService {
 
     const id = publicId();
     const verifyUrl = `${this.config.publicVerifyBaseUrl.replace(/\/$/, '')}/${id}`;
-    const result = inspection.result as unknown as InspectionResult;
+    const inspectionReport = inspection.report as unknown as InspectionReport;
 
-    const pdf = await renderReport(result, {
+    const pdf = await renderReport(inspectionReport, {
       reportId: id,
       publicId: id,
       verifyUrl,
@@ -123,18 +123,31 @@ export class ReportsService {
         inspection: {
           select: {
             trustScore: true,
-            verificationStatus: true,
+            rawTrustScore: true,
+            trustVerdict: true,
             confidence: true,
-            batteryScore: true,
-            softwareScore: true,
-            partsScore: true,
+            coverage: true,
+            identityVerdict: true,
+            hardwareVerdict: true,
+            securityVerdict: true,
+            batteryVerdict: true,
             batteryHealthPercent: true,
             batteryCycleCount: true,
+            batteryWearGrade: true,
             iosVersion: true,
+            unitProvenance: true,
             capturedAt: true,
             engineVersion: true,
+            algorithmVersion: true,
+            ledgerDigest: true,
+            componentsReplacedCount: true,
+            componentsIndeterminate: true,
+            hardwareAnomalyCount: true,
             device: { select: { marketingName: true, capacityGb: true, regionName: true } },
-            partResults: { select: { component: true, verdict: true, confidence: true } },
+            components: {
+              select: { subject: true, verdict: true, authenticity: true, confidence: true },
+            },
+            _count: { select: { evidence: true, inferences: true } },
           },
         },
       },
@@ -144,31 +157,54 @@ export class ReportsService {
       throw new NotFoundException('No valid report exists for this code');
     }
 
+    const inspection = report.inspection;
+
     return {
       valid: true,
       reportId: report.publicId,
       issuedBy: report.organization.name,
       issuedAt: report.createdAt,
+      /// Lets a recipient prove the PDF they hold is the one that was issued.
       checksum: report.checksum,
+      /// Lets a recipient ask the issuer to reproduce this verdict from the
+      /// same evidence. Any edit to that evidence changes the digest.
+      evidenceLedgerDigest: inspection.ledgerDigest,
       device: {
-        model: report.inspection.device.marketingName,
-        capacityGb: report.inspection.device.capacityGb,
-        region: report.inspection.device.regionName,
-        iosVersion: report.inspection.iosVersion,
+        model: inspection.device.marketingName,
+        capacityGb: inspection.device.capacityGb,
+        region: inspection.device.regionName,
+        iosVersion: inspection.iosVersion,
+        unitProvenance: inspection.unitProvenance,
       },
       verdict: {
-        trustScore: report.inspection.trustScore,
-        status: report.inspection.verificationStatus,
-        confidence: report.inspection.confidence,
-        batteryScore: report.inspection.batteryScore,
-        softwareScore: report.inspection.softwareScore,
-        partsScore: report.inspection.partsScore,
-        batteryHealthPercent: report.inspection.batteryHealthPercent,
-        batteryCycleCount: report.inspection.batteryCycleCount,
+        trustVerdict: inspection.trustVerdict,
+        trustScore: inspection.trustScore,
+        rawTrustScore: inspection.rawTrustScore,
+        confidence: inspection.confidence,
+        coverage: inspection.coverage,
       },
-      parts: report.inspection.partResults.filter((p) => p.verdict !== 'CANNOT_DETERMINE'),
-      inspectedAt: report.inspection.capturedAt,
-      engineVersion: report.inspection.engineVersion,
+      modules: {
+        identity: inspection.identityVerdict,
+        hardware: inspection.hardwareVerdict,
+        security: inspection.securityVerdict,
+        battery: inspection.batteryVerdict,
+      },
+      battery: {
+        healthPercent: inspection.batteryHealthPercent,
+        cycleCount: inspection.batteryCycleCount,
+        wearGrade: inspection.batteryWearGrade,
+      },
+      /// Determined components only. Components DevDNA could not assess are
+      /// reported as a count, never omitted: a shorter list must not read as a
+      /// cleaner device.
+      components: inspection.components.filter((c) => c.verdict !== 'CANNOT_DETERMINE'),
+      notAssessed: inspection.componentsIndeterminate,
+      hardwareAnomalies: inspection.hardwareAnomalyCount,
+      evidenceCount: inspection._count.evidence,
+      inferenceCount: inspection._count.inferences,
+      inspectedAt: inspection.capturedAt,
+      engineVersion: inspection.engineVersion,
+      algorithmVersion: inspection.algorithmVersion,
     };
   }
 

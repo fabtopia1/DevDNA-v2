@@ -72,8 +72,12 @@ describe('bridge http api', () => {
       });
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.result.identity.marketingName).toBe('iPhone 14 Pro');
+      expect(body.result.details.identity.marketingName).toBe('iPhone 14 Pro');
       expect(body.result.trust.score).toBeGreaterThan(0);
+      expect(body.result.evidence.length).toBeGreaterThan(20);
+      // The bridge scores locally so a shop still gets a verdict offline.
+      expect(body.result.trust.verdict).toBeTruthy();
+      expect(body.result.provenanceViolations).toEqual([]);
       expect(body.progress.at(-1).stage).toBe('complete');
       expect(body.upload.uploaded).toBe(false);
     } finally {
@@ -100,9 +104,14 @@ describe('bridge http api', () => {
       });
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      const display = body.result.parts.results.find((r: { component: string }) => r.component === 'DISPLAY');
-      expect(display.verdict).toBe('UNKNOWN_PART');
-      expect(body.result.trust.status).toBe('FLAGGED');
+      const display = body.result.details.service.components.find(
+        (c: { subject: string }) => c.subject === 'DISPLAY',
+      );
+      // An "Unknown Part" label means Apple could not verify what was fitted,
+      // and that the component was serviced at all.
+      expect(display.verdict).toBe('REPLACED_LIKELY');
+      expect(display.authenticity).toBe('NOT_VERIFIED');
+      expect(body.result.trust.verdict).toBe('UNTRUSTED');
     } finally {
       await server.close();
     }

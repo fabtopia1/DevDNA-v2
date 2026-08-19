@@ -13,7 +13,7 @@ import {
   Min,
 } from 'class-validator';
 import type { Request } from 'express';
-import type { InspectionResult, RawDeviceSnapshot } from '@devdna/core';
+import type { InspectionReport, RawDeviceSnapshot } from '@devdna/core';
 import { BridgeAuth, CurrentUser, Roles, type AuthenticatedUser } from '../../common/decorators';
 import { BridgeSignatureGuard, type BridgePrincipal } from '../../common/guards/bridge-signature.guard';
 import { InspectionsService } from './inspections.service';
@@ -26,7 +26,11 @@ class ListInspectionsQuery {
   pageSize = 25;
 
   @IsOptional() @IsString()
-  status?: string;
+  verdict?: string;
+
+  /** Narrow to inspections where this component was found replaced. */
+  @IsOptional() @IsString()
+  replacedComponent?: string;
 
   @IsOptional() @IsString()
   search?: string;
@@ -52,7 +56,7 @@ class IngestDto {
 
   /** The bridge's own scoring. Retained for divergence detection only. */
   @IsOptional() @IsObject()
-  result?: InspectionResult;
+  result?: InspectionReport;
 
   @IsOptional() @IsString() @MaxLength(120)
   workstation?: string;
@@ -80,7 +84,7 @@ export class InspectionsController {
       organizationId: bridge.organizationId,
       bridgeId: bridge.bridgeId,
       snapshot: dto.snapshot,
-      clientResult: dto.result ?? null,
+      clientReport: dto.result ?? null,
       workstation: dto.workstation ?? null,
       customerId: dto.customerId ?? null,
     });
@@ -92,7 +96,8 @@ export class InspectionsController {
     return this.inspections.list(user.organizationId, {
       page: Number(query.page) || 1,
       pageSize: Number(query.pageSize) || 25,
-      ...(query.status ? { status: query.status } : {}),
+      ...(query.verdict ? { verdict: query.verdict } : {}),
+      ...(query.replacedComponent ? { replacedComponent: query.replacedComponent } : {}),
       ...(query.search ? { search: query.search } : {}),
       ...(query.deviceId ? { deviceId: query.deviceId } : {}),
       ...(query.from ? { from: new Date(query.from) } : {}),
@@ -101,14 +106,35 @@ export class InspectionsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Full inspection detail including evidence' })
+  @ApiOperation({ summary: 'Inspection conclusions: verdicts, components and findings' })
   get(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.inspections.get(user.organizationId, id);
   }
 
+  /**
+   * Evidence is served on its own route, not folded into the inspection.
+   * Separating them is the point: a caller can read conclusions without
+   * evidence or evidence without conclusions, and the two are never conflated.
+   */
+  @Get(':id/evidence')
+  @ApiOperation({ summary: 'The raw evidence and inferences behind an inspection' })
+  evidence(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Query('subject') subject?: string,
+  ) {
+    return this.inspections.evidence(user.organizationId, id, subject ? { subject } : {});
+  }
+
+  @Get(':id/audit')
+  @ApiOperation({ summary: 'Ordered record of how this inspection was produced' })
+  audit(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.inspections.auditTrail(user.organizationId, id);
+  }
+
   @Roles('TECHNICIAN')
   @Post(':id/rescore')
-  @ApiOperation({ summary: 'Re-score a stored snapshot under the current engine' })
+  @ApiOperation({ summary: 'Re-score stored evidence under the current engine' })
   rescore(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.inspections.rescore(user.organizationId, id, user.userId);
   }

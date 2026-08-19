@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { signPayload, type InspectionResult, type RawDeviceSnapshot } from '@devdna/core';
+import { signPayload, type InspectionReport, type RawDeviceSnapshot } from '@devdna/core';
 import type { BridgeConfig } from '../config.js';
 
 export interface UploadPayload {
   snapshot: RawDeviceSnapshot;
-  result: InspectionResult;
+  result: InspectionReport;
   workstation: string;
 }
 

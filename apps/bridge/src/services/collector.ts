@@ -1,5 +1,5 @@
 import {
-  CollectionErrorCode,
+  FailureReason,
   buildSimulatedSnapshot,
   type CollectionError,
   type RawDeviceSnapshot,
@@ -110,7 +110,7 @@ export class SnapshotCollector {
       } else {
         errors.push({
           collector,
-          code: CollectionErrorCode.UNKNOWN,
+          code: FailureReason.UNKNOWN,
           message: error instanceof Error ? error.message : String(error),
         });
       }

@@ -58,6 +58,20 @@ const SECURITY_KEYS = [
   'DeveloperMode',
 ] as const;
 
+/**
+ * Provenance timestamps must be full instants.
+ *
+ * Analytics files name themselves with a date only (`2026-03-11`), and letting
+ * that through as `observedAt` meant the value did not survive a round-trip
+ * through a timestamp column: the ledger digest changed on reload and genuine
+ * tampering became indistinguishable from a formatting artefact.
+ */
+function toInstant(value: string | null | undefined, fallback: string): string {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+}
+
 interface CollectorContext {
   ledger: EvidenceLedger;
   at: string;
@@ -68,7 +82,7 @@ export function collectEvidence(snapshot: RawDeviceSnapshot): EvidenceLedger {
   const ledger = new EvidenceLedger();
   const context: CollectorContext = {
     ledger,
-    at: snapshot.capturedAt,
+    at: toInstant(snapshot.capturedAt, new Date().toISOString()),
     instrument: `devdna-bridge/${snapshot.bridge.version}`,
   };
 
@@ -385,7 +399,7 @@ function collectAnalytics(ctx: CollectorContext, snapshot: RawDeviceSnapshot): v
       source: EvidenceSource.DEVICE_ANALYTICS,
       method: CollectionMethod.CRASH_REPORT_COPY,
       collector: 'analytics.battery',
-      observedAt: analytics.fileDate ?? ctx.at,
+      observedAt: toInstant(analytics.fileDate, ctx.at),
       instrument: ctx.instrument,
       raw: analytics.sourceFile,
       note: `Recovered from ${analytics.sourceFile}`,
@@ -403,7 +417,7 @@ function collectAnalytics(ctx: CollectorContext, snapshot: RawDeviceSnapshot): v
       source: EvidenceSource.DEVICE_ANALYTICS,
       method: CollectionMethod.CRASH_REPORT_COPY,
       collector: 'analytics.diagnostics',
-      observedAt: analytics.fileDate ?? ctx.at,
+      observedAt: toInstant(analytics.fileDate, ctx.at),
       instrument: ctx.instrument,
       raw: `${pattern} in ${analytics.sourceFile}`,
     });
@@ -539,7 +553,7 @@ function collectAttestation(ctx: CollectorContext, snapshot: RawDeviceSnapshot):
       source: EvidenceSource.TECHNICIAN,
       method,
       collector: 'attestation.service-history',
-      observedAt: attestation.capturedAt,
+      observedAt: toInstant(attestation.capturedAt, ctx.at),
       note: 'iOS displayed no Parts and Service History section',
     });
     return;
@@ -558,7 +572,7 @@ function collectAttestation(ctx: CollectorContext, snapshot: RawDeviceSnapshot):
       source: EvidenceSource.TECHNICIAN,
       method,
       collector: 'attestation.service-history',
-      observedAt: attestation.capturedAt,
+      observedAt: toInstant(attestation.capturedAt, ctx.at),
       raw: `${entry.component}: ${entry.label}`,
       note: `Technician ${attestation.capturedBy} transcribed the on-device service history`,
     });

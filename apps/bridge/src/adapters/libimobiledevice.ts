@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  CollectionErrorCode,
+  FailureReason,
   extractAnalytics,
   mergeAnalytics,
   parseIdeviceInfo,
@@ -269,16 +269,16 @@ export class CollectionFailure extends Error {
 /** Turn a tool's exit into a typed, technician-readable collection error. */
 function toCollectionFailure(collector: string, result: ExecResult): CollectionFailure {
   const text = `${result.stderr} ${result.stdout}`.trim();
-  let code = CollectionErrorCode.UNKNOWN;
+  let code = FailureReason.UNKNOWN;
 
-  if (result.timedOut) code = CollectionErrorCode.TIMEOUT;
-  else if (/no device found|device not found/i.test(text)) code = CollectionErrorCode.NOT_PAIRED;
-  else if (/pairing|trust|not paired/i.test(text)) code = CollectionErrorCode.NOT_PAIRED;
-  else if (/passcode|locked/i.test(text)) code = CollectionErrorCode.DEVICE_LOCKED;
-  else if (/denied|permission|not permitted/i.test(text)) code = CollectionErrorCode.PERMISSION_DENIED;
+  if (result.timedOut) code = FailureReason.TIMEOUT;
+  else if (/no device found|device not found/i.test(text)) code = FailureReason.NOT_PAIRED;
+  else if (/pairing|trust|not paired/i.test(text)) code = FailureReason.NOT_PAIRED;
+  else if (/passcode|locked/i.test(text)) code = FailureReason.DEVICE_LOCKED;
+  else if (/denied|permission|not permitted/i.test(text)) code = FailureReason.PERMISSION_DENIED;
   else if (/could not start service|service.*unavailable|invalid service/i.test(text)) {
-    code = CollectionErrorCode.SERVICE_UNAVAILABLE;
-  } else if (/unsupported|not supported/i.test(text)) code = CollectionErrorCode.UNSUPPORTED_OS;
+    code = FailureReason.SERVICE_UNAVAILABLE;
+  } else if (/unsupported|not supported/i.test(text)) code = FailureReason.UNSUPPORTED_OS;
 
   return new CollectionFailure({
     collector,

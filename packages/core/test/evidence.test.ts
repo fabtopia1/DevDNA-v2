@@ -171,6 +171,23 @@ describe('collectors', () => {
     }
   });
 
+  it('records every provenance timestamp as a full ISO instant', () => {
+    // A date-only timestamp does not survive a round-trip through a database
+    // timestamp column, which would silently change the ledger digest on
+    // reload and make real tampering indistinguishable from a formatting
+    // artefact.
+    for (const profile of ['serviced-14-pro', 'counterfeit-display-13'] as const) {
+      for (const record of collectEvidence(buildSimulatedSnapshot(profile)).all()) {
+        expect(record.provenance.observedAt, `${profile} ${record.key}`).toMatch(
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+        );
+        expect(new Date(record.provenance.observedAt).toISOString()).toBe(
+          record.provenance.observedAt,
+        );
+      }
+    }
+  });
+
   it('is deterministic: the same snapshot always yields the same ledger', () => {
     const a = collectEvidence(buildSimulatedSnapshot('counterfeit-display-13'));
     const b = collectEvidence(buildSimulatedSnapshot('counterfeit-display-13'));

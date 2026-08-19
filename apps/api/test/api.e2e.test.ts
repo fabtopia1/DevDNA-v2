@@ -131,8 +131,9 @@ describe('full inspection lifecycle', () => {
       .expect(201);
 
     expect(response.body.id).toBeTruthy();
-    expect(response.body.result.identity.marketingName).toBe('iPhone 14 Pro');
-    expect(response.body.result.trust.score).toBeGreaterThan(0);
+    expect(response.body.report.device.marketingName).toBe('iPhone 14 Pro');
+    expect(response.body.report.trust.score).toBeGreaterThan(0);
+    expect(response.body.report.provenanceViolations).toEqual([]);
     inspectionId = response.body.id;
   });
 
@@ -144,7 +145,16 @@ describe('full inspection lifecycle', () => {
       result: {
         engineVersion: '9.9.9',
         inspectedAt: new Date().toISOString(),
-        trust: { score: 100, rawScore: 100, confidence: 1, status: 'VERIFIED', inputs: {}, gatesApplied: [], algorithmVersion: '9.9.9' },
+        trust: {
+          score: 100,
+          rawScore: 100,
+          confidence: 1,
+          coverage: 1,
+          verdict: 'TRUSTED',
+          pillars: [],
+          gatesApplied: [],
+          algorithmVersion: '9.9.9',
+        },
       },
     };
     const body = JSON.stringify(forged);
@@ -155,12 +165,12 @@ describe('full inspection lifecycle', () => {
       .send(body)
       .expect(201);
 
-    expect(response.body.result.trust.score).toBeLessThan(60);
-    expect(response.body.result.trust.status).toBe('FLAGGED');
+    expect(response.body.report.trust.score).toBeLessThan(60);
+    expect(response.body.report.trust.verdict).toBe('UNTRUSTED');
 
     const stored = await prisma.inspection.findUnique({ where: { id: response.body.id } });
-    expect(stored?.trustScore).toBe(response.body.result.trust.score);
-    expect(stored?.verificationStatus).toBe('FLAGGED');
+    expect(stored?.trustScore).toBe(response.body.report.trust.score);
+    expect(stored?.trustVerdict).toBe('UNTRUSTED');
   });
 
   it('rejects a tampered signature', async () => {
@@ -210,6 +220,24 @@ describe('full inspection lifecycle', () => {
     await http.post('/v1/inspections/ingest').set(headers).send(body).expect(401);
   });
 
+  it('encrypts identifying evidence at rest but keeps it reproducible', async () => {
+    const row = await prisma.evidenceRecordRow.findFirst({
+      where: { inspectionId, key: 'SerialNumber' },
+    });
+    // Stored encrypted, so a database read yields no identifier...
+    expect(row?.value).toHaveProperty('__enc');
+    expect(JSON.stringify(row?.value)).not.toContain('FK2Q7WXYZ1');
+
+    // ...and masked again on the way out of the API.
+    const served = await http
+      .get(`/v1/inspections/${inspectionId}/evidence?subject=DEVICE`)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    const serial = served.body.evidence.find((r: { key: string }) => r.key === 'SerialNumber');
+    expect(serial.value).toMatch(/^\*+/);
+    expect(serial.value).toContain('YZ1');
+  });
+
   it('strips raw identifiers from the stored snapshot by default', async () => {
     const stored = await prisma.inspection.findUnique({ where: { id: inspectionId } });
     const snapshot = stored?.snapshot as unknown as RawDeviceSnapshot;
@@ -221,6 +249,81 @@ describe('full inspection lifecycle', () => {
     expect(device?.udid).toBeNull();
   });
 
+  it('persists evidence as rows, separately from every conclusion', async () => {
+    const [evidence, inferences, verdicts, components, audit] = await Promise.all([
+      prisma.evidenceRecordRow.findMany({ where: { inspectionId } }),
+      prisma.inferenceRow.findMany({ where: { inspectionId } }),
+      prisma.moduleVerdictRow.findMany({ where: { inspectionId } }),
+      prisma.componentServiceRow.findMany({ where: { inspectionId } }),
+      prisma.auditEntryRow.findMany({ where: { inspectionId }, orderBy: { sequence: 'asc' } }),
+    ]);
+
+    expect(evidence.length).toBeGreaterThan(20);
+    expect(inferences.length).toBeGreaterThan(0);
+    expect(verdicts.length).toBeGreaterThan(0);
+    expect(components.length).toBeGreaterThan(0);
+    expect(audit.length).toBeGreaterThan(10);
+
+    // Every record carries full provenance.
+    for (const record of evidence) {
+      expect(record.sourceAuthority).toBeTruthy();
+      expect(record.method).toBeTruthy();
+      expect(record.collector).toBeTruthy();
+      expect(record.reliability).toBeGreaterThan(0);
+    }
+
+    // Every inference points at evidence that is actually stored.
+    const evidenceIds = new Set(evidence.map((e) => e.evidenceId));
+    for (const inference of inferences) {
+      expect(inference.evidenceIds.length).toBeGreaterThan(0);
+      for (const id of inference.evidenceIds) expect(evidenceIds.has(id)).toBe(true);
+    }
+
+    // Every determined verdict points at inferences that are actually stored.
+    const inferenceIds = new Set(inferences.map((i) => i.inferenceId));
+    for (const verdict of verdicts.filter((v) => v.determinacy === 'DETERMINED')) {
+      expect(verdict.inferenceIds.length).toBeGreaterThan(0);
+      for (const id of verdict.inferenceIds) expect(inferenceIds.has(id)).toBe(true);
+    }
+
+    // The audit trail is ordered and gap-free.
+    expect(audit.map((e) => e.sequence)).toEqual(audit.map((_, i) => i + 1));
+  });
+
+  it('serves evidence on its own route, never folded into the conclusions', async () => {
+    const conclusions = await http
+      .get(`/v1/inspections/${inspectionId}`)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    // The detail route carries verdicts, not raw observations.
+    expect(conclusions.body.evidence).toBeUndefined();
+    expect(conclusions.body.components.length).toBeGreaterThan(0);
+
+    const evidence = await http
+      .get(`/v1/inspections/${inspectionId}/evidence`)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(evidence.body.evidence.length).toBeGreaterThan(20);
+    expect(evidence.body.ledgerDigest).toHaveLength(64);
+
+    const filtered = await http
+      .get(`/v1/inspections/${inspectionId}/evidence?subject=BATTERY`)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(filtered.body.evidence.every((r: { subject: string }) => r.subject === 'BATTERY')).toBe(true);
+  });
+
+  it('exposes the ordered audit trail for a stored inspection', async () => {
+    const audit = await http
+      .get(`/v1/inspections/${inspectionId}/audit`)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(audit.body.length).toBeGreaterThan(10);
+    expect(audit.body[0].sequence).toBe(1);
+    expect(audit.body.map((e: { action: string }) => e.action)).toContain('VERDICT_CONCLUDED');
+  });
+
   it('lists and filters inspections', async () => {
     const list = await http
       .get('/v1/inspections?page=1&pageSize=10')
@@ -230,11 +333,18 @@ describe('full inspection lifecycle', () => {
     expect(list.body.total).toBeGreaterThanOrEqual(2);
     expect(list.body.items[0].device.marketingName).toBeTruthy();
 
-    const flagged = await http
-      .get('/v1/inspections?status=FLAGGED')
+    const untrusted = await http
+      .get('/v1/inspections?verdict=UNTRUSTED')
       .set('authorization', `Bearer ${accessToken}`)
       .expect(200);
-    expect(flagged.body.items.every((i: { verificationStatus: string }) => i.verificationStatus === 'FLAGGED')).toBe(true);
+    expect(untrusted.body.items.every((i: { trustVerdict: string }) => i.trustVerdict === 'UNTRUSTED')).toBe(true);
+
+    // Fleet analytics the trade actually asks for, as plain SQL.
+    const replacedDisplays = await http
+      .get('/v1/inspections?replacedComponent=DISPLAY')
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(replacedDisplays.body.total).toBeGreaterThan(0);
   });
 
   it('returns full inspection detail with evidence', async () => {
@@ -243,9 +353,18 @@ describe('full inspection lifecycle', () => {
       .set('authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(detail.body.partResults.length).toBeGreaterThan(0);
+    expect(detail.body.components.length).toBeGreaterThan(0);
+    expect(detail.body.verdicts.length).toBeGreaterThan(0);
     expect(detail.body.findings.length).toBeGreaterThan(0);
     expect(detail.body.bridge.workstation).toBe('E2E-BENCH');
+    // Every finding declares what it rests on.
+    for (const finding of detail.body.findings) {
+      expect(['EVIDENCE', 'ABSENCE']).toContain(finding.basis);
+      if (finding.basis === 'ABSENCE') {
+        expect(finding.evidenceIds).toEqual([]);
+        expect(finding.inferenceIds).toEqual([]);
+      }
+    }
   });
 
   it('generates a downloadable PDF report', async () => {
@@ -276,6 +395,11 @@ describe('full inspection lifecycle', () => {
     expect(verified.body.valid).toBe(true);
     expect(verified.body.device.model).toBe('iPhone 14 Pro');
     expect(verified.body.verdict.trustScore).toBeGreaterThan(0);
+    // A recipient can ask the issuer to reproduce this verdict from the same
+    // evidence, and any edit to that evidence changes the digest.
+    expect(verified.body.evidenceLedgerDigest).toHaveLength(64);
+    // Components DevDNA could not assess are counted, never silently omitted.
+    expect(typeof verified.body.notAssessed).toBe('number');
 
     // A stranger scanning the QR code must not receive identifying data.
     const payload = JSON.stringify(verified.body);
@@ -297,11 +421,17 @@ describe('full inspection lifecycle', () => {
 
     expect(summary.body.totals.inspections).toBeGreaterThanOrEqual(2);
     expect(summary.body.averages.trustScore).toBeGreaterThan(0);
+    expect(summary.body.averages.coverage).toBeGreaterThan(0);
     expect(Array.isArray(summary.body.recent)).toBe(true);
-    expect(summary.body.partBreakdown.length).toBeGreaterThan(0);
+    // Fleet questions the trade actually asks, answered by indexed SQL.
+    expect(summary.body.componentOutcomes.length).toBeGreaterThan(0);
+    expect(summary.body.moduleCoverage.length).toBeGreaterThan(0);
+    expect(Array.isArray(summary.body.failingCollectors)).toBe(true);
   });
 
-  it('re-scores a stored snapshot into a new inspection', async () => {
+  it('re-scores stored evidence into a new inspection, reproducing the verdict', async () => {
+    const original = await prisma.inspection.findUnique({ where: { id: inspectionId } });
+
     const rescored = await http
       .post(`/v1/inspections/${inspectionId}/rescore`)
       .set('authorization', `Bearer ${accessToken}`)
@@ -309,7 +439,34 @@ describe('full inspection lifecycle', () => {
 
     // A new record, so the original report keeps saying what it said.
     expect(rescored.body.id).not.toBe(inspectionId);
-    expect(rescored.body.result.identity.marketingName).toBe('iPhone 14 Pro');
+    expect(rescored.body.report.device.marketingName).toBe('iPhone 14 Pro');
+
+    // Same evidence, same engine, same answer: the reproducibility guarantee.
+    const stored = await prisma.inspection.findUnique({ where: { id: rescored.body.id } });
+    expect(stored?.trustScore).toBe(original?.trustScore);
+    expect(stored?.trustVerdict).toBe(original?.trustVerdict);
+    expect(stored?.ledgerDigest).toBe(original?.ledgerDigest);
+  });
+
+  it('refuses to re-score evidence that no longer matches its digest', async () => {
+    // Simulate an edit made directly in the database. Re-scoring tampered
+    // evidence would launder that edit into a fresh, apparently authoritative
+    // verdict, which is exactly what the digest exists to prevent.
+    const target = await prisma.evidenceRecordRow.findFirst({
+      where: { inspectionId, key: 'CycleCount' },
+    });
+    if (!target) throw new Error('expected a CycleCount record to tamper with');
+
+    await prisma.evidenceRecordRow.update({ where: { id: target.id }, data: { value: 1 } });
+    await http
+      .post(`/v1/inspections/${inspectionId}/rescore`)
+      .set('authorization', `Bearer ${accessToken}`)
+      .expect(400);
+
+    await prisma.evidenceRecordRow.update({
+      where: { id: target.id },
+      data: { value: target.value as never },
+    });
   });
 
   it('isolates tenants', async () => {

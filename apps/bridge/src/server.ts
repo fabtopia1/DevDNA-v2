@@ -4,7 +4,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { z } from 'zod';
 import {
   AppleServiceHistoryLabel,
-  runInspection,
+  inspect,
   type RawDeviceSnapshot,
   type ServiceHistoryAttestation,
 } from '@devdna/core';
@@ -120,8 +120,14 @@ export async function createServer(config: BridgeConfig): Promise<BridgeServer> 
     // Scored locally as well as in the cloud: the shop still sees a verdict
     // when its internet connection is down, and the API re-scores server-side
     // so a tampered bridge cannot dictate the stored result.
-    const result = runInspection(snapshot);
-    broadcast({ type: 'complete', udid, trustScore: result.trust.score, status: result.trust.status });
+    const result = inspect(snapshot);
+    broadcast({
+      type: 'complete',
+      udid,
+      trustScore: result.trust.score,
+      verdict: result.trust.verdict,
+      confidence: result.trust.confidence,
+    });
 
     const uploadOutcome = upload
       ? await uploader

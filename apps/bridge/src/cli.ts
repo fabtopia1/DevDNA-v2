@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runInspection, SIMULATOR_PROFILES, verdictLabel, labelFor } from '@devdna/core';
+import { componentLabel, inspect, SIMULATOR_PROFILES, type InspectionReport } from '@devdna/core';
 import { loadConfig } from './config.js';
 import { createServer } from './server.js';
 import { BRIDGE_VERSION, SnapshotCollector } from './services/collector.js';
@@ -126,7 +126,7 @@ async function main(argv: string[]): Promise<number> {
       const snapshot = await collector.collect(udid, (event) => {
         if (!json) process.stderr.write(`  ${event.ok ? '·' : '!'} ${event.label}\n`);
       });
-      const result = runInspection(snapshot);
+      const result = inspect(snapshot);
       if (json) {
         process.stdout.write(`${JSON.stringify({ snapshot, result }, null, 2)}\n`);
         return 0;
@@ -141,24 +141,57 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
-function formatResult(result: ReturnType<typeof runInspection>): string {
-  const { identity, battery, software, parts, trust } = result;
+/**
+ * Technician-facing summary.
+ *
+ * Ordered to match how a bench decision actually gets made: what is this
+ * device, is it what it claims to be, has it been worked on, and what is its
+ * condition. The trust score comes last because it is a summary of the lines
+ * above it, not a substitute for them.
+ */
+function formatResult(result: InspectionReport): string {
+  const { hardware, service, battery, security } = result.details;
+  const { trust, device } = result;
+
   const lines: string[] = [
     '',
-    `  ${identity.marketingName}  ${identity.marketingCapacityGb ?? '?'}GB  iOS ${identity.iosVersion ?? '?'}`,
-    `  ${identity.regionName ?? identity.regionCode ?? 'region unknown'}  ·  ${identity.udid}`,
+    `  ${device.marketingName ?? device.productType ?? 'Unknown model'}` +
+      `  ${device.capacityGb ?? '?'}GB` +
+      `  iOS ${device.iosVersion ?? '?'}`,
+    `  ${device.regionName ?? device.regionCode ?? 'region unknown'}` +
+      `  ·  unit: ${device.unitProvenance.toLowerCase().replace(/_/g, ' ')}`,
     '',
-    `  Battery   ${battery.score.toString().padStart(3)}   health ${battery.maximumCapacityPercent?.value ?? '--'}%  cycles ${battery.cycleCount?.value ?? '--'}`,
-    `  Software  ${software.score.toString().padStart(3)}   iOS ${software.iosVersion ?? '--'}`,
-    `  Parts     ${parts.score.toString().padStart(3)}   coverage ${Math.round(parts.coverage * 100)}%`,
+    `  Identity   ${verdictOf(result, 'identity').padEnd(22)} ${confidenceOf(result, 'identity')}`,
+    `  Hardware   ${verdictOf(result, 'hardware').padEnd(22)} ${confidenceOf(result, 'hardware')}` +
+      (hardware.anomalies.length > 0 ? `  (${hardware.anomalies.length} anomal${hardware.anomalies.length === 1 ? 'y' : 'ies'})` : ''),
+    `  Security   ${verdictOf(result, 'security').padEnd(22)} posture ${security.postureScore}/100`,
+    `  Battery    ${verdictOf(result, 'battery').padEnd(22)} grade ${battery.wearGrade}` +
+      `  health ${battery.maximumCapacityPercent ?? '--'}%  cycles ${battery.cycleCount ?? '--'}`,
     '',
   ];
-  for (const part of parts.results.filter((p) => p.verdict !== 'CANNOT_DETERMINE')) {
-    lines.push(`    ${labelFor(part.component).padEnd(14)} ${verdictLabel(part.verdict)}`);
+
+  if (battery.replacementLikelihood !== null) {
+    lines.push(
+      `  Battery replacement within ${battery.replacementWindowMonths} months: ` +
+        `${Math.round(battery.replacementLikelihood * 100)}% likely`,
+      '',
+    );
   }
+
+  lines.push(`  Service evidence  (${Math.round(service.components.length > 0 ? result.modules.service.coverage * 100 : 0)}% of component weight determined)`);
+  const determined = service.components.filter((c) => c.verdict !== 'CANNOT_DETERMINE');
+  if (determined.length === 0) {
+    lines.push('    no component could be assessed; no claim is made about any part');
+  }
+  for (const component of determined) {
+    const authenticity =
+      component.authenticity === 'UNKNOWN' ? '' : `  [${component.authenticity.toLowerCase().replace(/_/g, ' ')}]`;
+    lines.push(`    ${componentLabel(component.subject).padEnd(14)} ${component.verdict.padEnd(18)}${authenticity}`);
+  }
+
   lines.push(
     '',
-    `  TRUST SCORE  ${trust.score}/100   ${trust.status}   (confidence ${Math.round(trust.confidence * 100)}%)`,
+    `  TRUST  ${trust.score}/100   ${trust.verdict}   (confidence ${Math.round(trust.confidence * 100)}%, coverage ${Math.round(trust.coverage * 100)}%)`,
     '',
   );
   for (const gate of trust.gatesApplied) lines.push(`    capped at ${gate.cap}: ${gate.reason}`);
@@ -166,8 +199,15 @@ function formatResult(result: ReturnType<typeof runInspection>): string {
   for (const finding of result.findings.slice(0, 8)) {
     lines.push(`    [${finding.severity}] ${finding.title}`);
   }
+  lines.push('', `  ${result.evidence.length} evidence records · ledger ${result.ledgerDigest.slice(0, 16)}`, '');
   return `${lines.join('\n')}\n`;
 }
+
+const verdictOf = (result: InspectionReport, module: keyof InspectionReport['modules']): string =>
+  result.modules[module].verdicts[0]?.value ?? 'CANNOT_DETERMINE';
+
+const confidenceOf = (result: InspectionReport, module: keyof InspectionReport['modules']): string =>
+  `confidence ${Math.round(result.modules[module].confidence * 100)}%`;
 
 main(process.argv)
   .then((code) => {

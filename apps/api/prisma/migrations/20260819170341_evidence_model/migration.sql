@@ -5,13 +5,25 @@ CREATE TYPE "UserRole" AS ENUM ('OWNER', 'ADMIN', 'TECHNICIAN', 'VIEWER');
 CREATE TYPE "InspectionStatus" AS ENUM ('PENDING', 'COMPLETE', 'FAILED');
 
 -- CreateEnum
-CREATE TYPE "VerificationStatus" AS ENUM ('VERIFIED', 'VERIFIED_WITH_NOTES', 'CAUTION', 'FLAGGED', 'INCONCLUSIVE');
+CREATE TYPE "TrustVerdict" AS ENUM ('TRUSTED', 'TRUSTED_WITH_NOTES', 'CAUTION', 'UNTRUSTED', 'INSUFFICIENT_EVIDENCE');
 
 -- CreateEnum
-CREATE TYPE "PartComponent" AS ENUM ('DISPLAY', 'BATTERY', 'REAR_CAMERA', 'FRONT_CAMERA', 'FACE_ID', 'TOUCH_ID', 'REAR_HOUSING', 'LOGIC_BOARD', 'LIDAR', 'SPEAKER', 'MICROPHONE', 'TAPTIC_ENGINE');
+CREATE TYPE "ModuleId" AS ENUM ('IDENTITY', 'HARDWARE_CONSISTENCY', 'SERVICE_EVIDENCE', 'BATTERY_INTELLIGENCE', 'SECURITY_DNA', 'TRUST');
 
 -- CreateEnum
-CREATE TYPE "PartVerdict" AS ENUM ('GENUINE_APPLE_PART', 'USED_APPLE_PART', 'UNKNOWN_PART', 'UNVERIFIED_PART', 'CANNOT_DETERMINE', 'NOT_APPLICABLE');
+CREATE TYPE "Determinacy" AS ENUM ('DETERMINED', 'INDETERMINATE');
+
+-- CreateEnum
+CREATE TYPE "FindingBasis" AS ENUM ('EVIDENCE', 'ABSENCE');
+
+-- CreateEnum
+CREATE TYPE "EvidenceSubject" AS ENUM ('DEVICE', 'SYSTEM_SOFTWARE', 'SECURITY_STATE', 'BATTERY', 'DISPLAY', 'REAR_CAMERA', 'FRONT_CAMERA', 'FACE_ID', 'TOUCH_ID', 'LOGIC_BOARD', 'REAR_HOUSING', 'LIDAR', 'SPEAKER', 'MICROPHONE', 'TAPTIC_ENGINE');
+
+-- CreateEnum
+CREATE TYPE "ServiceVerdict" AS ENUM ('ORIGINAL_LIKELY', 'REPLACED_LIKELY', 'CANNOT_DETERMINE');
+
+-- CreateEnum
+CREATE TYPE "PartAuthenticity" AS ENUM ('GENUINE_APPLE', 'GENUINE_TRANSPLANTED', 'NOT_VERIFIED', 'UNKNOWN');
 
 -- CreateEnum
 CREATE TYPE "Severity" AS ENUM ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
@@ -130,22 +142,31 @@ CREATE TABLE "inspections" (
     "bridgeId" TEXT,
     "customerId" TEXT,
     "status" "InspectionStatus" NOT NULL DEFAULT 'COMPLETE',
-    "verificationStatus" "VerificationStatus" NOT NULL,
+    "trustVerdict" "TrustVerdict" NOT NULL,
     "trustScore" INTEGER NOT NULL,
     "rawTrustScore" INTEGER NOT NULL,
     "confidence" DOUBLE PRECISION NOT NULL,
-    "batteryScore" INTEGER NOT NULL,
-    "softwareScore" INTEGER NOT NULL,
-    "partsScore" INTEGER NOT NULL,
-    "partsCoverage" DOUBLE PRECISION NOT NULL,
+    "coverage" DOUBLE PRECISION NOT NULL,
+    "identityVerdict" TEXT,
+    "hardwareVerdict" TEXT,
+    "securityVerdict" TEXT,
+    "batteryVerdict" TEXT,
     "batteryHealthPercent" INTEGER,
     "batteryCycleCount" INTEGER,
+    "batteryWearGrade" TEXT,
+    "batteryReplacementRisk" DOUBLE PRECISION,
+    "securityPostureScore" INTEGER,
+    "hardwareAnomalyCount" INTEGER NOT NULL DEFAULT 0,
+    "componentsReplacedCount" INTEGER NOT NULL DEFAULT 0,
+    "componentsIndeterminate" INTEGER NOT NULL DEFAULT 0,
     "iosVersion" TEXT,
     "buildVersion" TEXT,
+    "unitProvenance" TEXT,
     "engineVersion" TEXT NOT NULL,
     "algorithmVersion" TEXT NOT NULL,
+    "ledgerDigest" TEXT NOT NULL,
     "snapshot" JSONB NOT NULL,
-    "result" JSONB NOT NULL,
+    "report" JSONB NOT NULL,
     "capturedAt" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -153,16 +174,86 @@ CREATE TABLE "inspections" (
 );
 
 -- CreateTable
-CREATE TABLE "part_results" (
+CREATE TABLE "evidence_records" (
     "id" TEXT NOT NULL,
     "inspectionId" TEXT NOT NULL,
-    "component" "PartComponent" NOT NULL,
-    "verdict" "PartVerdict" NOT NULL,
-    "confidence" DOUBLE PRECISION NOT NULL,
+    "evidenceId" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "subject" "EvidenceSubject" NOT NULL,
+    "key" TEXT NOT NULL,
+    "value" JSONB NOT NULL,
+    "sourceAuthority" TEXT NOT NULL,
+    "method" TEXT NOT NULL,
+    "collector" TEXT NOT NULL,
+    "observedAt" TIMESTAMP(3) NOT NULL,
+    "reliability" DOUBLE PRECISION NOT NULL,
+    "instrument" TEXT,
+    "raw" TEXT,
+    "note" TEXT,
+
+    CONSTRAINT "evidence_records_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "inferences" (
+    "id" TEXT NOT NULL,
+    "inspectionId" TEXT NOT NULL,
+    "inferenceId" TEXT NOT NULL,
+    "module" "ModuleId" NOT NULL,
+    "rule" TEXT NOT NULL,
+    "subject" "EvidenceSubject" NOT NULL,
+    "direction" TEXT NOT NULL,
+    "statement" TEXT NOT NULL,
     "weight" DOUBLE PRECISION NOT NULL,
+    "confidence" DOUBLE PRECISION NOT NULL,
+    "evidenceIds" TEXT[],
+    "derivedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "inferences_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "module_verdicts" (
+    "id" TEXT NOT NULL,
+    "inspectionId" TEXT NOT NULL,
+    "verdictId" TEXT NOT NULL,
+    "module" "ModuleId" NOT NULL,
+    "subject" "EvidenceSubject" NOT NULL,
+    "value" TEXT NOT NULL,
+    "determinacy" "Determinacy" NOT NULL,
+    "confidence" DOUBLE PRECISION NOT NULL,
+    "rationale" TEXT NOT NULL,
+    "inferenceIds" TEXT[],
+    "evidenceIds" TEXT[],
+
+    CONSTRAINT "module_verdicts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "component_service_results" (
+    "id" TEXT NOT NULL,
+    "inspectionId" TEXT NOT NULL,
+    "subject" "EvidenceSubject" NOT NULL,
+    "verdict" "ServiceVerdict" NOT NULL,
+    "authenticity" "PartAuthenticity" NOT NULL,
+    "confidence" DOUBLE PRECISION NOT NULL,
     "rationale" TEXT NOT NULL,
 
-    CONSTRAINT "part_results_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "component_service_results_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "audit_entries" (
+    "id" TEXT NOT NULL,
+    "inspectionId" TEXT NOT NULL,
+    "sequence" INTEGER NOT NULL,
+    "at" TIMESTAMP(3) NOT NULL,
+    "module" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "summary" TEXT NOT NULL,
+    "refs" JSONB NOT NULL,
+
+    CONSTRAINT "audit_entries_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -171,9 +262,12 @@ CREATE TABLE "findings" (
     "inspectionId" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "severity" "Severity" NOT NULL,
+    "module" "ModuleId" NOT NULL,
     "title" TEXT NOT NULL,
     "detail" TEXT NOT NULL,
-    "source" TEXT NOT NULL,
+    "basis" "FindingBasis" NOT NULL,
+    "evidenceIds" TEXT[],
+    "inferenceIds" TEXT[],
 
     CONSTRAINT "findings_pkey" PRIMARY KEY ("id")
 );
@@ -267,22 +361,64 @@ CREATE INDEX "customers_organizationId_idx" ON "customers"("organizationId");
 CREATE INDEX "inspections_organizationId_createdAt_idx" ON "inspections"("organizationId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "inspections_organizationId_verificationStatus_idx" ON "inspections"("organizationId", "verificationStatus");
+CREATE INDEX "inspections_organizationId_trustVerdict_idx" ON "inspections"("organizationId", "trustVerdict");
 
 -- CreateIndex
 CREATE INDEX "inspections_deviceId_createdAt_idx" ON "inspections"("deviceId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "part_results_inspectionId_idx" ON "part_results"("inspectionId");
+CREATE INDEX "evidence_records_inspectionId_subject_idx" ON "evidence_records"("inspectionId", "subject");
 
 -- CreateIndex
-CREATE INDEX "part_results_component_verdict_idx" ON "part_results"("component", "verdict");
+CREATE INDEX "evidence_records_key_idx" ON "evidence_records"("key");
+
+-- CreateIndex
+CREATE INDEX "evidence_records_sourceAuthority_method_idx" ON "evidence_records"("sourceAuthority", "method");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "evidence_records_inspectionId_evidenceId_key" ON "evidence_records"("inspectionId", "evidenceId");
+
+-- CreateIndex
+CREATE INDEX "inferences_inspectionId_module_idx" ON "inferences"("inspectionId", "module");
+
+-- CreateIndex
+CREATE INDEX "inferences_rule_idx" ON "inferences"("rule");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "inferences_inspectionId_inferenceId_key" ON "inferences"("inspectionId", "inferenceId");
+
+-- CreateIndex
+CREATE INDEX "module_verdicts_inspectionId_module_idx" ON "module_verdicts"("inspectionId", "module");
+
+-- CreateIndex
+CREATE INDEX "module_verdicts_module_value_idx" ON "module_verdicts"("module", "value");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "module_verdicts_inspectionId_verdictId_key" ON "module_verdicts"("inspectionId", "verdictId");
+
+-- CreateIndex
+CREATE INDEX "component_service_results_inspectionId_idx" ON "component_service_results"("inspectionId");
+
+-- CreateIndex
+CREATE INDEX "component_service_results_subject_verdict_idx" ON "component_service_results"("subject", "verdict");
+
+-- CreateIndex
+CREATE INDEX "component_service_results_subject_authenticity_idx" ON "component_service_results"("subject", "authenticity");
+
+-- CreateIndex
+CREATE INDEX "audit_entries_inspectionId_sequence_idx" ON "audit_entries"("inspectionId", "sequence");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "audit_entries_inspectionId_sequence_key" ON "audit_entries"("inspectionId", "sequence");
 
 -- CreateIndex
 CREATE INDEX "findings_inspectionId_idx" ON "findings"("inspectionId");
 
 -- CreateIndex
 CREATE INDEX "findings_code_idx" ON "findings"("code");
+
+-- CreateIndex
+CREATE INDEX "findings_module_severity_idx" ON "findings"("module", "severity");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "reports_publicId_key" ON "reports"("publicId");
@@ -336,7 +472,19 @@ ALTER TABLE "inspections" ADD CONSTRAINT "inspections_bridgeId_fkey" FOREIGN KEY
 ALTER TABLE "inspections" ADD CONSTRAINT "inspections_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "part_results" ADD CONSTRAINT "part_results_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "evidence_records" ADD CONSTRAINT "evidence_records_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "inferences" ADD CONSTRAINT "inferences_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "module_verdicts" ADD CONSTRAINT "module_verdicts_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "component_service_results" ADD CONSTRAINT "component_service_results_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "findings" ADD CONSTRAINT "findings_inspectionId_fkey" FOREIGN KEY ("inspectionId") REFERENCES "inspections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
