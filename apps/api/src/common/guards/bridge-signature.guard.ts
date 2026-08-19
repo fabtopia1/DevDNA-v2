@@ -71,7 +71,18 @@ export class BridgeSignatureGuard implements CanActivate {
       bodyHash,
     ].join('\n');
 
-    const secret = this.crypto.decrypt(bridge.secretCiphertext);
+    // A stored secret can fail to decrypt after an encryption-key rotation, or
+    // if the row was seeded/imported with a placeholder. That is an
+    // authentication failure for this bridge, not a server fault — returning
+    // 500 would both leak an internal error and give a caller a way to
+    // distinguish credential states.
+    let secret: string;
+    try {
+      secret = this.crypto.decrypt(bridge.secretCiphertext);
+    } catch {
+      throw new UnauthorizedException('Bridge credentials must be re-issued');
+    }
+
     if (!verifySignature(secret, canonical, signature)) {
       throw new UnauthorizedException('Bridge request signature is invalid');
     }

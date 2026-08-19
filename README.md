@@ -101,12 +101,12 @@ iPhone ──USB──► DevDNA Bridge ──loopback──► Dashboard ──
 |---|---|
 | `packages/core` | The domain: parsers, inspection engines, trust scoring. Pure and deterministic. **53 tests.** |
 | `apps/bridge` | Local USB agent, CLI and loopback API. **7 tests.** |
-| `apps/api` | NestJS: tenancy, auth, ingest, PDF reports, audit. **22 e2e tests.** |
+| `apps/api` | NestJS: tenancy, auth, ingest, PDF reports, audit. **23 e2e tests.** |
 | `apps/web` | Next.js dashboard, inspection flow, public verification. |
 | `docs/` | The full technical blueprint — [start here](docs/README.md). |
 
 ```bash
-pnpm -r test        # 82 tests
+pnpm -r test        # 83 tests
 pnpm -r typecheck
 pnpm -r build
 ```

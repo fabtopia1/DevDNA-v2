@@ -6,8 +6,8 @@
 |---|---|---|---|
 | `packages/core` | **53** | ~0.8 s | Parsers, catalogs, scoring curves, verdict rules, gates, end-to-end determinism |
 | `apps/bridge` | **7** | ~3 s | UDID validation, simulator collection, loopback auth, inspection over HTTP, attestation handling |
-| `apps/api` | **22** | ~1 s | Full lifecycle against real PostgreSQL |
-| **Total** | **82** | | |
+| `apps/api` | **23** | ~1 s | Full lifecycle against real PostgreSQL |
+| **Total** | **83** | | |
 
 Run everything: `pnpm -r test`.
 

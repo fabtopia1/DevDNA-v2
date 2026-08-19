@@ -169,6 +169,31 @@ describe('full inspection lifecycle', () => {
     await http.post('/v1/inspections/ingest').set(headers).send(body).expect(401);
   });
 
+  it('rejects a bridge whose stored secret can no longer be decrypted', async () => {
+    // Simulates an encryption-key rotation or an imported placeholder row.
+    const bridge = await prisma.bridgeRegistration.findFirst({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const original = bridge!.secretCiphertext;
+    await prisma.bridgeRegistration.update({
+      where: { id: bridge!.id },
+      data: { secretCiphertext: 'v1.not.real.ciphertext' },
+    });
+
+    const body = JSON.stringify({ snapshot: buildSimulatedSnapshot('pristine-15-pro') });
+    const response = await http
+      .post('/v1/inspections/ingest')
+      .set(signedHeaders(bridgeToken, bridgeSecret, body))
+      .send(body);
+    expect(response.status).toBe(401);
+
+    await prisma.bridgeRegistration.update({
+      where: { id: bridge!.id },
+      data: { secretCiphertext: original },
+    });
+  });
+
   it('rejects a replayed nonce', async () => {
     const body = JSON.stringify({ snapshot: buildSimulatedSnapshot('pristine-15-pro') });
     const nonce = randomUUID();
