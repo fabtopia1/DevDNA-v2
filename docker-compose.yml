@@ -1,0 +1,50 @@
+# Local development stack. Production runs the same images on ECS Fargate with
+# RDS and S3 substituted for the postgres and volume services here — see
+# docs/14-production-deployment.md.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: devdna
+      POSTGRES_PASSWORD: devdna
+      POSTGRES_DB: devdna
+    ports: ['5432:5432']
+    volumes: ['devdna-postgres:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devdna']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/api.Dockerfile
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      DATABASE_URL: postgresql://devdna:devdna@postgres:5432/devdna?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-local-refresh-secret-change-me}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-local-encryption-key-change-me}
+      CORS_ORIGINS: http://localhost:3000
+      PUBLIC_VERIFY_BASE_URL: http://localhost:3000/verify
+      REPORT_STORAGE_DIR: /var/lib/devdna/reports
+    ports: ['4000:4000']
+    volumes: ['devdna-reports:/var/lib/devdna/reports']
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/web.Dockerfile
+    depends_on: [api]
+    environment:
+      NODE_ENV: production
+      DEVDNA_API_URL: http://api:4000
+    ports: ['3000:3000']
+
+volumes:
+  devdna-postgres:
+  devdna-reports:
