@@ -1,0 +1,38 @@
+{
+  "name": "devdna-softwaredna",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DevDNA SoftwareDNA \u2014 iPhone verification platform for repair, refurbishment and resale businesses.",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "pnpm -r --filter @devdna/core build && pnpm -r --filter=!@devdna/core build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "dev:api": "pnpm --filter @devdna/api start:dev",
+    "dev:web": "pnpm --filter @devdna/web dev",
+    "dev:bridge": "pnpm --filter @devdna/bridge dev",
+    "db:migrate": "pnpm --filter @devdna/api prisma:migrate",
+    "db:seed": "pnpm --filter @devdna/api seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
+    "@types/node": "^22.13.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@prisma/client",
+      "prisma",
+      "@prisma/engines",
+      "sharp",
+      "@nestjs/core",
+      "argon2",
+      "unrs-resolver"
+    ]
+  }
+}
