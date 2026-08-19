@@ -3,7 +3,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 /**
  * UDIDs and serial numbers are device-identifying personal data under GDPR.
  * DevDNA persists salted hashes by default and keeps the plaintext only where
- * an operator has explicitly opted in (see `docs/10-security-architecture.md`).
+ * an operator has explicitly opted in (see `docs/11-security-architecture.md`).
  */
 export function hashIdentifier(value: string, salt = ''): string {
   return createHash('sha256').update(`${salt}:${value.trim().toLowerCase()}`).digest('hex');

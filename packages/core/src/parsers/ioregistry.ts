@@ -9,7 +9,7 @@ import { asNumber, asString, pick } from './ideviceinfo.js';
  * Availability caveat, by design not by accident: Apple progressively
  * restricted diagnostics_relay IORegistry access on modern iOS. When the
  * service refuses, the battery engine falls back to the analytics provider —
- * see `docs/06-softwaredna-engine.md`.
+ * see `docs/03-evidence-model.md`.
  */
 export interface SmartBatteryReading {
   designCapacityMah: number | null;

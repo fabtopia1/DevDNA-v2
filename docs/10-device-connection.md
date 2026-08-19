@@ -1,4 +1,4 @@
-# 5. Device connection architecture
+# 10. Device connection
 
 ## What is legally and technically reachable
 

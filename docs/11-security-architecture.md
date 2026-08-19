@@ -1,4 +1,4 @@
-# 10. Security architecture
+# 11. Security architecture
 
 ## Threat model
 
@@ -80,18 +80,32 @@ silently accepted.
 
 ## Personal data
 
-UDIDs, serials and IMEIs are personal data under GDPR.
+UDIDs, serials and IMEIs are personal data under GDPR. The evidence
+architecture changes how they are handled, because the ledger has to stay
+reproducible.
 
-- Persisted as **per-tenant salted SHA-256**. The per-tenant salt matters: a
-  global salt would let one shop hash a UDID and confirm whether a rival had
-  handled that exact handset.
-- Raw identifiers are stripped from the stored snapshot and masked in the
-  stored result unless the operator explicitly sets
-  `RETAIN_PLAINTEXT_IDENTIFIERS`. A snapshot dump is not a UDID dump.
+- **Device rows are keyed by per-tenant salted SHA-256**, never by raw
+  identifier. The per-tenant salt matters: a global salt would let one shop hash
+  a UDID and confirm whether a rival had handled that exact handset.
+- **Identifying evidence values are encrypted, not redacted.** They are stored
+  as `{ "__enc": "<AES-256-GCM ciphertext>" }` under the application key.
+
+  Redaction looked like the privacy-preserving choice and was in fact a
+  correctness bug: the ledger is what re-scoring reads, so a masked IMEI would
+  be re-checked against its Luhn digit on the next re-score and come back as an
+  identity mismatch. Worse, masking changes the ledger content, so the digest no
+  longer verifies — and genuine tampering becomes indistinguishable from our own
+  redaction. Encryption preserves the exact bytes; a database leak alone still
+  yields no identifiers.
+- **Masking happens at API egress**, where it belongs. `GET /…/evidence`
+  decrypts server-side and returns a masked tail; the stored value is untouched.
+- Plaintext retention is opt-in per organization (`RETAIN_PLAINTEXT_IDENTIFIERS`)
+  for operators whose jurisdiction requires it.
 - Public verification exposes none of them.
 - Analytics files pulled off a handset are scanned in a temp directory and
   deleted. DevDNA never retains a customer's raw analytics.
-- Erasure: deleting an organization or a device cascades; the salted hash means
+- Erasure: deleting an organization cascades to devices, inspections, evidence,
+  inferences, verdicts, findings and audit entries. The salted hash means
   nothing survives that could re-link the handset.
 
 ## Web application security
@@ -112,16 +126,27 @@ regex-constrained. Both device output and dashboard input reach this layer.
 
 ## Audit
 
-Append-only `audit_logs` records organization creation, login, bridge pairing
-and revocation, inspection creation (with workstation and engine version), user
-invitation and report generation — each with actor, IP and user agent. Best
-effort by design so it never fails a technician's action, but logged loudly
-when it fails.
+Two audits, deliberately distinct — see
+[06-audit-model.md](06-audit-model.md).
+
+**Operational.** Append-only `audit_logs` records organization creation, login,
+bridge pairing and revocation, inspection ingestion, re-scoring, user invitation
+and report generation — each with actor, IP and user agent. Best effort by
+design so it never fails a technician's action, but logged loudly when it fails.
+
+**Evidentiary.** Every inspection stores the ledger digest, a per-record
+content-addressed id, the ordered reasoning trail, and the result of a post-hoc
+provenance audit. This is a security control, not only a product feature: a row
+edited directly in the database no longer matches its own content-addressed id,
+and `POST /v1/inspections/:id/rescore` verifies both the digest and per-record
+integrity before recomputing. Re-scoring tampered evidence would launder an edit
+into a fresh, apparently authoritative verdict, so it is refused with a 400.
 
 ## What is deliberately not claimed
 
 DevDNA does not defend against a **jailbroken handset lying to it**. A modified
 system can falsify every value in the pipeline. The engine detects the common
 indicators (known bundle IDs, the `com.apple.afc2` service) and caps the trust
-score at 40 with a `CRITICAL` finding, but this is detection, not prevention —
-and the report says so rather than implying otherwise.
+score at 35 through the `INTEGRITY_COMPROMISED` gate with a `CRITICAL` finding,
+but this is detection, not prevention — and the report says so rather than
+implying otherwise.

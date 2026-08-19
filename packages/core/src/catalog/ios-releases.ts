@@ -1,7 +1,7 @@
 /**
  * Newest publicly released build per major iOS train that DevDNA knows about.
  * Used to compute "how far behind" a device is. Refreshed by the catalog sync
- * job (see `docs/06-softwaredna-engine.md`); an unknown-newer version on the
+ * job (see `docs/09-implementation-roadmap.md`); an unknown-newer version on the
  * device is treated as up to date rather than as an anomaly.
  */
 export interface IosTrain {
