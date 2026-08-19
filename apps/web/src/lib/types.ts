@@ -1,21 +1,31 @@
 /** Shapes returned by the DevDNA API, as consumed by the dashboard. */
 
-export type VerificationStatus =
-  | 'VERIFIED'
-  | 'VERIFIED_WITH_NOTES'
+export type TrustVerdict =
+  | 'TRUSTED'
+  | 'TRUSTED_WITH_NOTES'
   | 'CAUTION'
-  | 'FLAGGED'
-  | 'INCONCLUSIVE';
+  | 'UNTRUSTED'
+  | 'INSUFFICIENT_EVIDENCE';
 
-export type PartVerdict =
-  | 'GENUINE_APPLE_PART'
-  | 'USED_APPLE_PART'
-  | 'UNKNOWN_PART'
-  | 'UNVERIFIED_PART'
-  | 'CANNOT_DETERMINE'
-  | 'NOT_APPLICABLE';
+export type ServiceVerdict = 'ORIGINAL_LIKELY' | 'REPLACED_LIKELY' | 'CANNOT_DETERMINE';
 
+export type PartAuthenticity =
+  | 'GENUINE_APPLE'
+  | 'GENUINE_TRANSPLANTED'
+  | 'NOT_VERIFIED'
+  | 'UNKNOWN';
+
+export type Determinacy = 'DETERMINED' | 'INDETERMINATE';
+export type FindingBasis = 'EVIDENCE' | 'ABSENCE';
 export type Severity = 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type ModuleId =
+  | 'IDENTITY'
+  | 'HARDWARE_CONSISTENCY'
+  | 'SERVICE_EVIDENCE'
+  | 'BATTERY_INTELLIGENCE'
+  | 'SECURITY_DNA'
+  | 'TRUST';
 
 export interface DashboardSummary {
   windowDays: number;
@@ -23,25 +33,35 @@ export interface DashboardSummary {
     inspections: number;
     inspectionsInWindow: number;
     devices: number;
-    verified: number;
+    trusted: number;
     flagged: number;
-    inconclusive: number;
+    insufficientEvidence: number;
   };
   averages: {
     trustScore: number | null;
-    batteryScore: number | null;
-    softwareScore: number | null;
-    partsScore: number | null;
     confidence: number | null;
+    coverage: number | null;
+    batteryHealthPercent: number | null;
+    securityPostureScore: number | null;
   };
-  statusBreakdown: Record<string, number>;
-  partBreakdown: Array<{ component: string; verdict: PartVerdict; count: number }>;
-  topFindings: Array<{ code: string; severity: Severity; count: number }>;
+  verdictBreakdown: Record<string, number>;
+  componentOutcomes: Array<{
+    component: string;
+    verdict: ServiceVerdict;
+    authenticity: PartAuthenticity;
+    count: number;
+  }>;
+  /** Where the engine is blind: determined vs indeterminate, per module. */
+  moduleCoverage: Array<{ module: ModuleId; determinacy: Determinacy; count: number }>;
+  failingCollectors: Array<{ collector: string; failures: number }>;
+  topFindings: Array<{ code: string; severity: Severity; module: ModuleId; count: number }>;
   recent: Array<{
     id: string;
     createdAt: string;
     trustScore: number;
-    verificationStatus: VerificationStatus;
+    trustVerdict: TrustVerdict;
+    confidence: number;
+    componentsReplacedCount: number;
     device: { marketingName: string; capacityGb: number | null };
     user: { name: string } | null;
   }>;
@@ -52,15 +72,23 @@ export interface InspectionListItem {
   createdAt: string;
   capturedAt: string;
   trustScore: number;
-  verificationStatus: VerificationStatus;
-  batteryScore: number;
-  softwareScore: number;
-  partsScore: number;
+  rawTrustScore: number;
+  trustVerdict: TrustVerdict;
   confidence: number;
+  coverage: number;
+  identityVerdict: string | null;
+  hardwareVerdict: string | null;
+  securityVerdict: string | null;
+  batteryVerdict: string | null;
   batteryHealthPercent: number | null;
   batteryCycleCount: number | null;
+  batteryWearGrade: string | null;
+  componentsReplacedCount: number;
+  hardwareAnomalyCount: number;
   iosVersion: string | null;
+  unitProvenance: string | null;
   reportCount: number;
+  evidenceCount: number;
   device: {
     id: string;
     marketingName: string;
@@ -79,32 +107,138 @@ export interface InspectionList {
   totalPages: number;
 }
 
-export interface PartResultRecord {
+export interface ComponentServiceRow {
   id: string;
-  component: string;
-  verdict: PartVerdict;
+  subject: string;
+  verdict: ServiceVerdict;
+  authenticity: PartAuthenticity;
   confidence: number;
-  weight: number;
   rationale: string;
 }
 
-export interface FindingRecord {
+export interface ModuleVerdictRow {
+  id: string;
+  verdictId: string;
+  module: ModuleId;
+  subject: string;
+  value: string;
+  determinacy: Determinacy;
+  confidence: number;
+  rationale: string;
+  inferenceIds: string[];
+  evidenceIds: string[];
+}
+
+export interface FindingRow {
   id: string;
   code: string;
   severity: Severity;
+  module: ModuleId;
   title: string;
   detail: string;
-  source: string;
+  basis: FindingBasis;
+  evidenceIds: string[];
+  inferenceIds: string[];
+}
+
+/** The engine's report, as stored on the inspection. */
+export interface StoredReport {
+  engineVersion: string;
+  inspectedAt: string;
+  ledgerDigest: string;
+  device: {
+    productType: string | null;
+    marketingName: string | null;
+    modelRecognised: boolean;
+    capacityGb: number | null;
+    iosVersion: string | null;
+    buildVersion: string | null;
+    regionCode: string | null;
+    regionName: string | null;
+    serialNumber: string | null;
+    imei: string | null;
+    unitProvenance: string;
+  };
+  details: {
+    identity: {
+      checksPerformed: string[];
+      checksUnavailable: string[];
+      unitProvenance: string;
+      imei: { checksumValid: boolean; wellFormed: boolean } | null;
+    };
+    hardware: {
+      modelCatalogued: boolean;
+      expectedChip: string | null;
+      anomalies: Array<{
+        check: string;
+        observed: string;
+        expected: string;
+        severity: Severity;
+        explanation: string;
+      }>;
+      checksPerformed: string[];
+      checksUnavailable: string[];
+    };
+    service: {
+      components: ComponentServiceRow[];
+      attestationPresent: boolean;
+      serviceHistorySectionAbsent: boolean;
+      replacedCount: number;
+      originalCount: number;
+      indeterminateCount: number;
+    };
+    battery: {
+      maximumCapacityPercent: number | null;
+      cycleCount: number | null;
+      designCapacityMah: number | null;
+      ratedCycleLife: number;
+      wearGrade: string;
+      healthConfidence: number;
+      replacementLikelihood: number | null;
+      replacementWindowMonths: number;
+      wearRatePer100Cycles: number | null;
+      sourcesUsed: string[];
+      assumptions: string[];
+    };
+    security: {
+      postureScore: number;
+      integrityCompromised: boolean;
+      jailbreakIndicators: string[];
+      activationLockEnabled: boolean | null;
+      supervised: boolean | null;
+      passcodeSet: boolean | null;
+      deductions: Array<{ code: string; points: number; reason: string }>;
+    };
+  };
+  trust: {
+    score: number;
+    rawScore: number;
+    confidence: number;
+    confidenceBand: string;
+    verdict: TrustVerdict;
+    coverage: number;
+    pillars: Array<{
+      module: ModuleId;
+      score: number | null;
+      confidence: number;
+      coverage: number;
+      baseWeight: number;
+      effectiveWeight: number;
+    }>;
+    gatesApplied: Array<{ code: string; cap: number; reason: string; module: ModuleId }>;
+    algorithmVersion: string;
+  };
+  provenanceViolations: Array<{ code: string; message: string }>;
 }
 
 export interface InspectionDetail extends InspectionListItem {
-  rawTrustScore: number;
-  partsCoverage: number;
+  ledgerDigest: string;
   engineVersion: string;
   algorithmVersion: string;
-  buildVersion: string | null;
-  partResults: PartResultRecord[];
-  findings: FindingRecord[];
+  report: StoredReport;
+  components: ComponentServiceRow[];
+  verdicts: ModuleVerdictRow[];
+  findings: FindingRow[];
   bridge: { id: string; name: string; workstation: string | null } | null;
   customer: { id: string; name: string } | null;
   reports: Array<{
@@ -114,82 +248,44 @@ export interface InspectionDetail extends InspectionListItem {
     sizeBytes: number;
     downloadCount: number;
   }>;
-  /** The full engine output, as stored at inspection time. */
-  result: {
-    identity: Record<string, unknown> & {
-      marketingName: string;
-      productType: string;
-      marketingCapacityGb: number | null;
-      regionName: string | null;
-      iosVersion: string | null;
-      buildVersion: string | null;
-      modelNumber: string | null;
-      serialNumber: string | null;
-      imei: string | null;
-      recognisedModel: boolean;
-      activation: {
-        state: string | null;
-        activated: boolean;
-        activationLockEnabled: boolean | null;
-        supervised: boolean | null;
-        mdmEnrolled: boolean | null;
-        passcodeSet: boolean | null;
-      };
-    };
-    battery: {
-      score: number;
-      confidence: number;
-      condition: string;
-      chargingState: string;
-      ratedCycleLife: number;
-      maximumCapacityPercent: { value: number; source: string; confidence: number } | null;
-      cycleCount: { value: number; source: string; confidence: number } | null;
-      currentChargePercent: { value: number; source: string } | null;
-      designCapacityMah: { value: number } | null;
-      nominalChargeCapacityMah: { value: number } | null;
-      breakdown: { healthComponent: number | null; cycleComponent: number | null };
-    };
-    software: {
-      score: number;
-      confidence: number;
-      iosVersion: string | null;
-      latestKnownVersion: string | null;
-      majorVersionsBehind: number | null;
-      diagnosticsAvailable: boolean;
-      jailbreakSuspected: boolean;
-      jailbreakIndicators: string[];
-      storage: { totalBytes: number | null; availableBytes: number | null; usedPercent: number | null };
-    };
-    parts: {
-      score: number;
-      confidence: number;
-      coverage: number;
-      attestationPresent: boolean;
-      results: Array<{
-        component: string;
-        verdict: PartVerdict;
-        confidence: number;
-        rationale: string;
-        signals: Array<{
-          id: string;
-          summary: string;
-          source: string;
-          strength: number;
-          confidence: number;
-          polarity: string;
-          evidence?: string;
-        }>;
-      }>;
-    };
-    trust: {
-      score: number;
-      rawScore: number;
-      confidence: number;
-      status: VerificationStatus;
-      gatesApplied: Array<{ code: string; cap: number; reason: string }>;
-      inputs: Record<string, { score: number; confidence: number; weight: number }>;
-    };
-  };
+  _count: { evidence: number; inferences: number; auditEntries: number };
+}
+
+export interface EvidenceRow {
+  id: string;
+  evidenceId: string;
+  kind: string;
+  subject: string;
+  key: string;
+  value: string | number | boolean | null;
+  sourceAuthority: string;
+  method: string;
+  collector: string;
+  observedAt: string;
+  reliability: number;
+  instrument: string | null;
+  raw: string | null;
+  note: string | null;
+}
+
+export interface InferenceRow {
+  id: string;
+  inferenceId: string;
+  module: ModuleId;
+  rule: string;
+  subject: string;
+  direction: string;
+  statement: string;
+  weight: number;
+  confidence: number;
+  evidenceIds: string[];
+  derivedAt: string;
+}
+
+export interface EvidenceResponse {
+  ledgerDigest: string;
+  evidence: EvidenceRow[];
+  inferences: InferenceRow[];
 }
 
 export interface BridgeRegistration {
@@ -211,23 +307,43 @@ export interface PublicVerification {
   issuedBy: string;
   issuedAt: string;
   checksum: string;
+  evidenceLedgerDigest: string;
   device: {
     model: string;
     capacityGb: number | null;
     region: string | null;
     iosVersion: string | null;
+    unitProvenance: string | null;
   };
   verdict: {
+    trustVerdict: TrustVerdict;
     trustScore: number;
-    status: VerificationStatus;
+    rawTrustScore: number;
     confidence: number;
-    batteryScore: number;
-    softwareScore: number;
-    partsScore: number;
-    batteryHealthPercent: number | null;
-    batteryCycleCount: number | null;
+    coverage: number;
   };
-  parts: Array<{ component: string; verdict: PartVerdict; confidence: number }>;
+  modules: {
+    identity: string | null;
+    hardware: string | null;
+    security: string | null;
+    battery: string | null;
+  };
+  battery: {
+    healthPercent: number | null;
+    cycleCount: number | null;
+    wearGrade: string | null;
+  };
+  components: Array<{
+    subject: string;
+    verdict: ServiceVerdict;
+    authenticity: PartAuthenticity;
+    confidence: number;
+  }>;
+  notAssessed: number;
+  hardwareAnomalies: number;
+  evidenceCount: number;
+  inferenceCount: number;
   inspectedAt: string;
   engineVersion: string;
+  algorithmVersion: string;
 }

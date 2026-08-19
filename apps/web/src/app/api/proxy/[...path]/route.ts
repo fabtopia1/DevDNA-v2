@@ -19,6 +19,8 @@ const ALLOWED: Array<{ method: string; pattern: RegExp }> = [
   { method: 'DELETE', pattern: /^v1\/bridges\/[\w-]+$/ },
   { method: 'GET', pattern: /^v1\/inspections(\?.*)?$/ },
   { method: 'GET', pattern: /^v1\/inspections\/[\w-]+$/ },
+  { method: 'GET', pattern: /^v1\/inspections\/[\w-]+\/evidence(\?.*)?$/ },
+  { method: 'GET', pattern: /^v1\/inspections\/[\w-]+\/audit$/ },
   { method: 'GET', pattern: /^v1\/bridges$/ },
 ];
 

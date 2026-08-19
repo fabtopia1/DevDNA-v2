@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Card, CardHeader, EmptyState, cn } from '@/components/ui/primitives';
-import { STATUS_LABEL, STATUS_STYLE, VERDICT_LABEL, VERDICT_STYLE, componentLabel, scoreTone } from '@/lib/format';
+import {
+  AUTHENTICITY_LABEL,
+  AUTHENTICITY_STYLE,
+  SERVICE_LABEL,
+  SERVICE_STYLE,
+  TRUST_LABEL,
+  TRUST_STYLE,
+  componentLabel,
+  scoreTone,
+} from '@/lib/format';
 import {
   BridgeUnavailableError,
   bridgeHealth,
@@ -18,7 +27,7 @@ import {
   type CollectionProgress,
   type InspectResponse,
 } from '@/lib/bridge-client';
-import type { VerificationStatus } from '@/lib/types';
+import type { PartAuthenticity, ServiceVerdict, TrustVerdict } from '@/lib/types';
 
 const APPLE_LABELS = [
   'Genuine Apple Part',
@@ -303,42 +312,82 @@ export function InspectFlow() {
 }
 
 function InspectionSummary({ result }: { result: InspectResponse }) {
-  const { identity, trust, battery, software, parts } = result.result;
-  const status = trust.status as VerificationStatus;
-  const assessed = parts.results.filter((p) => p.verdict !== 'CANNOT_DETERMINE');
+  const { device, trust, details } = result.result;
+  const verdict = trust.verdict as TrustVerdict;
+  const assessed = details.service.components.filter((c) => c.verdict !== 'CANNOT_DETERMINE');
+  const insufficient = verdict === 'INSUFFICIENT_EVIDENCE';
 
   return (
     <Card>
       <CardHeader
         title="Inspection result"
-        description={`${identity.marketingName}${identity.marketingCapacityGb ? ` · ${identity.marketingCapacityGb} GB` : ''}${identity.iosVersion ? ` · iOS ${identity.iosVersion}` : ''}`}
-        action={<Badge className={STATUS_STYLE[status]}>{STATUS_LABEL[status]}</Badge>}
+        description={
+          `${device.marketingName ?? device.productType ?? 'Unknown model'}` +
+          `${device.capacityGb ? ` · ${device.capacityGb} GB` : ''}` +
+          `${device.iosVersion ? ` · iOS ${device.iosVersion}` : ''}`
+        }
+        action={<Badge className={TRUST_STYLE[verdict]}>{TRUST_LABEL[verdict]}</Badge>}
       />
-      <div className="grid grid-cols-4 gap-4 border-b border-hairline p-5">
-        {[
-          ['Trust', trust.score],
-          ['Battery', battery.score],
-          ['Software', software.score],
-          ['Parts', parts.score],
-        ].map(([label, score]) => (
-          <div key={String(label)}>
-            <p className="text-[11px] text-muted">{label}</p>
-            <p className={cn('tabular text-2xl font-semibold', scoreTone(Number(score)))}>{score}</p>
+
+      <div className="flex flex-wrap items-center gap-8 border-b border-hairline p-5">
+        {insufficient ? (
+          <p className="max-w-md text-xs text-muted">
+            Not enough evidence was gathered to issue a verdict. Only{' '}
+            {Math.round(trust.coverage * 100)}% of the assessable picture could be established.
+          </p>
+        ) : (
+          <div>
+            <p className={cn('tabular text-3xl font-semibold', scoreTone(trust.score))}>
+              {trust.score}
+            </p>
+            <p className="text-[11px] text-muted">trust score / 100</p>
           </div>
-        ))}
+        )}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+          <Metric label="Confidence" value={`${Math.round(trust.confidence * 100)}%`} />
+          <Metric label="Coverage" value={`${Math.round(trust.coverage * 100)}%`} />
+          <Metric
+            label="Battery"
+            value={
+              details.battery.maximumCapacityPercent !== null
+                ? `${details.battery.maximumCapacityPercent}% · ${details.battery.wearGrade}`
+                : 'not readable'
+            }
+          />
+          <Metric label="Security" value={`${details.security.postureScore}/100`} />
+        </div>
       </div>
 
       {assessed.length > 0 ? (
         <ul className="divide-y divide-hairline">
-          {assessed.map((part) => (
-            <li key={part.component} className="flex items-center justify-between px-5 py-2.5">
-              <span className="text-xs text-ink">{componentLabel(part.component)}</span>
-              <Badge className={VERDICT_STYLE[part.verdict as keyof typeof VERDICT_STYLE]}>
-                {VERDICT_LABEL[part.verdict as keyof typeof VERDICT_LABEL]}
-              </Badge>
+          {assessed.map((component) => (
+            <li
+              key={component.subject}
+              className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5"
+            >
+              <span className="text-xs text-ink">{componentLabel(component.subject)}</span>
+              <span className="flex items-center gap-2">
+                <Badge className={AUTHENTICITY_STYLE[component.authenticity as PartAuthenticity]}>
+                  {AUTHENTICITY_LABEL[component.authenticity as PartAuthenticity]}
+                </Badge>
+                <Badge className={SERVICE_STYLE[component.verdict as ServiceVerdict]}>
+                  {SERVICE_LABEL[component.verdict as ServiceVerdict]}
+                </Badge>
+              </span>
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="px-5 py-3 text-xs text-muted">
+          No component could be assessed. No claim is made about whether any part is original.
+        </p>
+      )}
+
+      {details.service.indeterminateCount > 0 ? (
+        <p className="border-t border-hairline px-5 py-2 text-[11px] text-muted">
+          {details.service.indeterminateCount} further component
+          {details.service.indeterminateCount === 1 ? '' : 's'} could not be assessed.
+        </p>
       ) : null}
 
       <div className="border-t border-hairline px-5 py-3 text-[11px] text-muted">
@@ -346,12 +395,27 @@ function InspectionSummary({ result }: { result: InspectResponse }) {
           <span className="text-verified">Saved to your workspace.</span>
         ) : (
           <span className="text-caution">
-            Not uploaded: {result.upload.reason ?? 'unknown reason'}. The result above was scored locally.
+            Not uploaded: {result.upload.reason ?? 'unknown reason'}. The result above was scored
+            locally on this bench.
           </span>
         )}{' '}
-        Battery health {battery.maximumCapacityPercent?.value ?? '—'}% · cycles{' '}
-        {battery.cycleCount?.value ?? '—'} · parts coverage {Math.round(parts.coverage * 100)}%.
+        {result.result.evidence.length} evidence records · ledger{' '}
+        {result.result.ledgerDigest.slice(0, 12)}
+        {result.result.provenanceViolations.length > 0 ? (
+          <span className="ml-1 text-flagged">
+            · {result.result.provenanceViolations.length} provenance violation
+          </span>
+        ) : null}
       </div>
     </Card>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] text-muted">{label}</p>
+      <p className="tabular text-xs font-medium text-ink">{value}</p>
+    </div>
   );
 }

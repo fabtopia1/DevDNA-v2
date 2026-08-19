@@ -106,12 +106,49 @@ export const listBridgeDevices = (): Promise<{ devices: BridgeDevice[] }> =>
 
 export interface InspectResponse {
   snapshot: unknown;
+  /** The engine's report, as scored locally on the bench. */
   result: {
-    identity: { marketingName: string; marketingCapacityGb: number | null; iosVersion: string | null };
-    trust: { score: number; status: string; confidence: number };
-    battery: { score: number; maximumCapacityPercent: { value: number } | null; cycleCount: { value: number } | null };
-    software: { score: number };
-    parts: { score: number; coverage: number; results: Array<{ component: string; verdict: string }> };
+    engineVersion: string;
+    ledgerDigest: string;
+    evidence: unknown[];
+    device: {
+      marketingName: string | null;
+      productType: string | null;
+      capacityGb: number | null;
+      iosVersion: string | null;
+      unitProvenance: string;
+    };
+    modules: Record<string, { verdicts: Array<{ value: string }>; confidence: number; coverage: number }>;
+    details: {
+      service: {
+        components: Array<{
+          subject: string;
+          verdict: string;
+          authenticity: string;
+          confidence: number;
+        }>;
+        replacedCount: number;
+        indeterminateCount: number;
+      };
+      battery: {
+        maximumCapacityPercent: number | null;
+        cycleCount: number | null;
+        wearGrade: string;
+        replacementLikelihood: number | null;
+        replacementWindowMonths: number;
+      };
+      hardware: { anomalies: Array<{ check: string }> };
+      security: { postureScore: number; integrityCompromised: boolean };
+    };
+    trust: {
+      score: number;
+      rawScore: number;
+      verdict: string;
+      confidence: number;
+      coverage: number;
+      gatesApplied: Array<{ code: string; cap: number; reason: string }>;
+    };
+    provenanceViolations: Array<{ code: string }>;
   };
   progress: CollectionProgress[];
   upload: { uploaded: boolean; inspectionId?: string; reason?: string };

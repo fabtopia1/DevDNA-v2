@@ -33,7 +33,9 @@ async function main(): Promise<void> {
     loadConfiguration(),
   );
 
-  const log = (message: string): void => process.stdout.write(`${message}\n`);
+  const log = (message: string): void => {
+    process.stdout.write(`${message}\n`);
+  };
 
   try {
     const existing = await prisma.organization.findUnique({ where: { slug: 'demo-repair-co' } });

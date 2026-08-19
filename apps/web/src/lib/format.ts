@@ -1,41 +1,69 @@
-import type { PartVerdict, Severity, VerificationStatus } from './types';
+import type {
+  Determinacy,
+  FindingBasis,
+  ModuleId,
+  PartAuthenticity,
+  ServiceVerdict,
+  Severity,
+  TrustVerdict,
+} from './types';
 
-export const STATUS_LABEL: Record<VerificationStatus, string> = {
-  VERIFIED: 'Verified',
-  VERIFIED_WITH_NOTES: 'Verified with notes',
+export const TRUST_LABEL: Record<TrustVerdict, string> = {
+  TRUSTED: 'Trusted',
+  TRUSTED_WITH_NOTES: 'Trusted with notes',
   CAUTION: 'Caution',
-  FLAGGED: 'Flagged',
-  INCONCLUSIVE: 'Inconclusive',
+  UNTRUSTED: 'Untrusted',
+  INSUFFICIENT_EVIDENCE: 'Insufficient evidence',
 };
 
 /**
- * Verdict styling. Every badge shows its wording as well as its colour —
- * a technician must never have to distinguish "genuine" from "unknown" by hue.
+ * Verdict styling.
+ *
+ * Every badge shows its wording as well as its colour. A technician must never
+ * have to distinguish "original" from "replaced" by hue, and the palette stays
+ * legible under common colour vision deficiencies.
  */
-export const STATUS_STYLE: Record<VerificationStatus, string> = {
-  VERIFIED: 'bg-verified-soft text-verified border-verified/25',
-  VERIFIED_WITH_NOTES: 'bg-notes-soft text-notes border-notes/25',
+export const TRUST_STYLE: Record<TrustVerdict, string> = {
+  TRUSTED: 'bg-verified-soft text-verified border-verified/25',
+  TRUSTED_WITH_NOTES: 'bg-notes-soft text-notes border-notes/25',
   CAUTION: 'bg-caution-soft text-caution border-caution/25',
-  FLAGGED: 'bg-flagged-soft text-flagged border-flagged/25',
-  INCONCLUSIVE: 'bg-inconclusive-soft text-inconclusive border-inconclusive/25',
+  UNTRUSTED: 'bg-flagged-soft text-flagged border-flagged/25',
+  INSUFFICIENT_EVIDENCE: 'bg-inconclusive-soft text-inconclusive border-inconclusive/25',
 };
 
-export const VERDICT_LABEL: Record<PartVerdict, string> = {
-  GENUINE_APPLE_PART: 'Genuine Apple Part',
-  USED_APPLE_PART: 'Used Apple Part',
-  UNKNOWN_PART: 'Unknown Part',
-  UNVERIFIED_PART: 'Unverified Part',
-  CANNOT_DETERMINE: 'Cannot Determine',
-  NOT_APPLICABLE: 'Not Applicable',
+export const SERVICE_LABEL: Record<ServiceVerdict, string> = {
+  ORIGINAL_LIKELY: 'Original likely',
+  REPLACED_LIKELY: 'Replaced likely',
+  CANNOT_DETERMINE: 'Cannot determine',
 };
 
-export const VERDICT_STYLE: Record<PartVerdict, string> = {
-  GENUINE_APPLE_PART: 'bg-verified-soft text-verified border-verified/25',
-  USED_APPLE_PART: 'bg-caution-soft text-caution border-caution/25',
-  UNKNOWN_PART: 'bg-flagged-soft text-flagged border-flagged/25',
-  UNVERIFIED_PART: 'bg-inconclusive-soft text-inconclusive border-inconclusive/25',
+export const SERVICE_STYLE: Record<ServiceVerdict, string> = {
+  ORIGINAL_LIKELY: 'bg-verified-soft text-verified border-verified/25',
+  REPLACED_LIKELY: 'bg-caution-soft text-caution border-caution/25',
   CANNOT_DETERMINE: 'bg-panel text-muted border-hairline',
-  NOT_APPLICABLE: 'bg-panel text-muted border-hairline',
+};
+
+export const AUTHENTICITY_LABEL: Record<PartAuthenticity, string> = {
+  GENUINE_APPLE: 'Genuine Apple part',
+  GENUINE_TRANSPLANTED: 'Genuine part, another device',
+  NOT_VERIFIED: 'Not verified by Apple',
+  UNKNOWN: 'Authenticity unknown',
+};
+
+export const AUTHENTICITY_STYLE: Record<PartAuthenticity, string> = {
+  GENUINE_APPLE: 'bg-verified-soft text-verified border-verified/25',
+  GENUINE_TRANSPLANTED: 'bg-caution-soft text-caution border-caution/25',
+  NOT_VERIFIED: 'bg-flagged-soft text-flagged border-flagged/25',
+  UNKNOWN: 'bg-panel text-muted border-hairline',
+};
+
+export const MODULE_LABEL: Record<ModuleId, string> = {
+  IDENTITY: 'Identity',
+  HARDWARE_CONSISTENCY: 'Hardware consistency',
+  SERVICE_EVIDENCE: 'Service evidence',
+  BATTERY_INTELLIGENCE: 'Battery intelligence',
+  SECURITY_DNA: 'SecurityDNA',
+  TRUST: 'Trust',
 };
 
 export const COMPONENT_LABEL: Record<string, string> = {
@@ -51,6 +79,9 @@ export const COMPONENT_LABEL: Record<string, string> = {
   SPEAKER: 'Speaker',
   MICROPHONE: 'Microphone',
   TAPTIC_ENGINE: 'Taptic Engine',
+  DEVICE: 'Device',
+  SYSTEM_SOFTWARE: 'System software',
+  SECURITY_STATE: 'Security state',
 };
 
 export const SEVERITY_STYLE: Record<Severity, string> = {
@@ -61,26 +92,73 @@ export const SEVERITY_STYLE: Record<Severity, string> = {
   INFO: 'text-muted',
 };
 
-/** Where a value came from, in words a technician recognises. */
+/** Which authority a fact came from, in words a technician recognises. */
 export const SOURCE_LABEL: Record<string, string> = {
-  LOCKDOWN: 'Device properties',
-  LOCKDOWN_DOMAIN: 'Device properties',
-  DIAGNOSTICS_RELAY: 'Diagnostics registry',
-  ANALYTICS_LOG: 'Device analytics files',
-  INSTALLATION_PROXY: 'Installed apps',
-  SERVICE_DISCOVERY: 'Service probe',
-  MOBILEGESTALT: 'Capability probe',
-  TECHNICIAN_ATTESTATION: 'Technician attestation',
-  ATTESTATION_OCR: 'Screenshot OCR',
-  AUTHORIZED_SERVICE_API: 'Apple service API',
-  DERIVED: 'Derived by DevDNA',
-  SIMULATOR: 'Simulated capture',
+  DEVICE_OS: 'Device operating system',
+  DEVICE_HARDWARE_REGISTRY: 'Hardware registry',
+  DEVICE_ANALYTICS: 'Device analytics files',
+  TECHNICIAN: 'Technician attestation',
+  OEM_SERVICE_API: 'Manufacturer service records',
+  REPAIR_NETWORK: 'Repair network',
+  DEVDNA_CATALOG: 'DevDNA catalog',
+};
+
+/** How a fact was obtained. */
+export const METHOD_LABEL: Record<string, string> = {
+  LOCKDOWN_GLOBAL_QUERY: 'Device property query',
+  LOCKDOWN_DOMAIN_QUERY: 'Scoped property query',
+  DIAGNOSTICS_RELAY_IOREGISTRY: 'Diagnostics registry',
+  CRASH_REPORT_COPY: 'Analytics file harvest',
+  INSTALLATION_PROXY_LIST: 'Installed app inventory',
+  SERVICE_PROBE: 'Service probe',
+  TECHNICIAN_INPUT: 'Typed by technician',
+  OCR_EXTRACTION: 'Screenshot OCR',
+  EXTERNAL_ADAPTER_QUERY: 'External authority',
+  CATALOG_LOOKUP: 'Catalog lookup',
+};
+
+export const EVIDENCE_KIND_LABEL: Record<string, string> = {
+  DEVICE_PROPERTY: 'Property',
+  CAPABILITY_FLAG: 'Capability',
+  MEASUREMENT: 'Measurement',
+  SERVICE_RECORD_STATEMENT: 'Service record',
+  DIAGNOSTIC_EVENT: 'Diagnostic event',
+  SOFTWARE_INVENTORY: 'Software inventory',
+  SERVICE_AVAILABILITY: 'Service availability',
+  COLLECTION_FAILURE: 'Collection failure',
+  HUMAN_ATTESTATION: 'Human attestation',
+  EXTERNAL_RECORD: 'External record',
+};
+
+export const UNIT_PROVENANCE_LABEL: Record<string, string> = {
+  RETAIL: 'Retail unit',
+  APPLE_REFURBISHED: 'Apple refurbished',
+  SERVICE_REPLACEMENT: 'Service replacement',
+  PERSONALISED: 'Retail (personalised)',
+  DEMO: 'Demonstration unit',
+  UNKNOWN: 'Not determinable',
+};
+
+export const BASIS_LABEL: Record<FindingBasis, string> = {
+  EVIDENCE: 'Evidence-based',
+  ABSENCE: 'Based on absent evidence',
 };
 
 export const sourceLabel = (source: string): string => SOURCE_LABEL[source] ?? source;
+export const methodLabel = (method: string): string => METHOD_LABEL[method] ?? method;
+export const kindLabel = (kind: string): string => EVIDENCE_KIND_LABEL[kind] ?? kind;
+export const componentLabel = (subject: string): string =>
+  COMPONENT_LABEL[subject] ?? subject.replace(/_/g, ' ');
+export const moduleLabel = (module: ModuleId): string => MODULE_LABEL[module] ?? module;
+export const unitProvenanceLabel = (value: string | null): string =>
+  value ? (UNIT_PROVENANCE_LABEL[value] ?? value) : '—';
 
-export const componentLabel = (component: string): string =>
-  COMPONENT_LABEL[component] ?? component.replace(/_/g, ' ');
+/** A module verdict rendered for a technician, not for a machine. */
+export const verdictLabel = (value: string | null): string =>
+  value ? value.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) : '—';
+
+export const determinacyLabel = (determinacy: Determinacy): string =>
+  determinacy === 'DETERMINED' ? 'Determined' : 'Indeterminate';
 
 export function formatDate(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
@@ -109,4 +187,19 @@ export function scoreTone(score: number): string {
   if (score >= 70) return 'text-notes';
   if (score >= 50) return 'text-caution';
   return 'text-flagged';
+}
+
+export function confidenceTone(confidence: number): string {
+  if (confidence >= 0.8) return 'text-verified';
+  if (confidence >= 0.6) return 'text-notes';
+  if (confidence >= 0.45) return 'text-caution';
+  return 'text-flagged';
+}
+
+/** Reliability rendered as words; a bare decimal means nothing to a shop. */
+export function reliabilityLabel(reliability: number): string {
+  if (reliability >= 0.95) return 'very high';
+  if (reliability >= 0.85) return 'high';
+  if (reliability >= 0.7) return 'moderate';
+  return 'low';
 }
