@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+/*
+ * A workshop bench is a bright, glare-heavy place and technicians run this on
+ * whatever laptop the shop owns. The palette is high-contrast and the verdict
+ * colours are chosen to stay distinguishable for the most common forms of
+ * colour vision deficiency — verdict is never signalled by hue alone, every
+ * badge carries its label in words.
+ */
+@theme {
+  --color-ink: #0b1220;
+  --color-ink-soft: #354154;
+  --color-muted: #5b6472;
+  --color-hairline: #e2e6ec;
+  --color-panel: #f6f8fa;
+  --color-brand: #1f3a8a;
+  --color-brand-soft: #eef2ff;
+
+  --color-verified: #0f7a58;
+  --color-verified-soft: #e6f4ef;
+  --color-notes: #1f6feb;
+  --color-notes-soft: #e8f0fe;
+  --color-caution: #a15c00;
+  --color-caution-soft: #fdf2e2;
+  --color-flagged: #b3261e;
+  --color-flagged-soft: #fdecea;
+  --color-inconclusive: #55606f;
+  --color-inconclusive-soft: #eef0f3;
+}
+
+html,
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

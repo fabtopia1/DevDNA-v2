@@ -17,3 +17,4 @@ tmp/
 apps/api/.data/
 apps/api/.env
 apps/api/.env.test
+apps/web/.next/
