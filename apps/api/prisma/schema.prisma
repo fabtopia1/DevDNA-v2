@@ -1,0 +1,368 @@
+// DevDNA SoftwareDNA — data model.
+//
+// Two principles drive this schema:
+//
+//  1. Multi-tenancy is structural. Every row a shop can read carries an
+//     organizationId, and every query path filters on it. Repair shops compete
+//     with each other and trade the same stock; a cross-tenant leak of device
+//     history is an existential product failure, not a bug.
+//
+//  2. Inspections are immutable evidence. The raw snapshot is stored verbatim
+//     alongside the scored result and the engine version that produced it, so
+//     any historical report can be explained, re-scored under a newer engine,
+//     or defended in a dispute between trading partners.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  TECHNICIAN
+  VIEWER
+}
+
+enum InspectionStatus {
+  PENDING
+  COMPLETE
+  FAILED
+}
+
+enum VerificationStatus {
+  VERIFIED
+  VERIFIED_WITH_NOTES
+  CAUTION
+  FLAGGED
+  INCONCLUSIVE
+}
+
+enum PartComponent {
+  DISPLAY
+  BATTERY
+  REAR_CAMERA
+  FRONT_CAMERA
+  FACE_ID
+  TOUCH_ID
+  REAR_HOUSING
+  LOGIC_BOARD
+  LIDAR
+  SPEAKER
+  MICROPHONE
+  TAPTIC_ENGINE
+}
+
+enum PartVerdict {
+  GENUINE_APPLE_PART
+  USED_APPLE_PART
+  UNKNOWN_PART
+  UNVERIFIED_PART
+  CANNOT_DETERMINE
+  NOT_APPLICABLE
+}
+
+enum Severity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("trial")
+  /// Per-tenant salt for hashing UDIDs and serials. Without it the same
+  /// handset would hash identically across tenants, letting one shop confirm
+  /// another shop handled a specific device.
+  identifierSalt String
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  bridges     BridgeRegistration[]
+  devices     Device[]
+  inspections Inspection[]
+  reports     Report[]
+  customers   Customer[]
+  auditLogs   AuditLog[]
+  apiKeys     ApiKey[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  passwordHash   String
+  name           String
+  role           UserRole @default(TECHNICIAN)
+  lastLoginAt    DateTime?
+  disabledAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inspections  Inspection[]
+  sessions     RefreshToken[]
+
+  @@unique([email])
+  @@index([organizationId])
+  @@map("users")
+}
+
+/// Refresh tokens are stored hashed and individually revocable, so signing out
+/// one shop laptop does not require rotating the whole tenant's secrets.
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// One physical workstation running DevDNA Bridge.
+model BridgeRegistration {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  workstation    String?
+  platform       String?
+  version        String?
+  /// The pairing token is stored as a hash — the API only ever compares it.
+  tokenHash      String   @unique
+  /// The HMAC secret must be recoverable to verify a signature, so it is
+  /// encrypted at rest with the application key rather than hashed. A database
+  /// leak alone therefore does not yield forgeable bridge credentials.
+  secretCiphertext String
+  lastSeenAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inspections  Inspection[]
+  nonces       BridgeNonce[]
+
+  @@index([organizationId])
+  @@map("bridge_registrations")
+}
+
+/// Replay protection for signed bridge requests. Rows are short-lived and
+/// swept by a scheduled job.
+model BridgeNonce {
+  id        String   @id @default(cuid())
+  bridgeId  String
+  nonce     String
+  expiresAt DateTime
+
+  bridge BridgeRegistration @relation(fields: [bridgeId], references: [id], onDelete: Cascade)
+
+  @@unique([bridgeId, nonce])
+  @@index([expiresAt])
+  @@map("bridge_nonces")
+}
+
+/// A handset, identified by a salted hash rather than its raw UDID.
+model Device {
+  id             String   @id @default(cuid())
+  organizationId String
+  udidHash       String
+  serialHash     String?
+  /// Retained only when the organization has opted in to plaintext identifiers.
+  udid           String?
+  serialNumber   String?
+  productType    String
+  marketingName  String
+  capacityGb     Int?
+  regionCode     String?
+  regionName     String?
+  colorHint      String?
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+  inspectionCount Int     @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inspections  Inspection[]
+
+  @@unique([organizationId, udidHash])
+  @@index([organizationId, lastSeenAt])
+  @@map("devices")
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  reference      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inspections  Inspection[]
+
+  @@index([organizationId])
+  @@map("customers")
+}
+
+model Inspection {
+  id             String   @id @default(cuid())
+  organizationId String
+  deviceId       String
+  userId         String?
+  bridgeId       String?
+  customerId     String?
+
+  status             InspectionStatus   @default(COMPLETE)
+  verificationStatus VerificationStatus
+  trustScore         Int
+  rawTrustScore      Int
+  confidence         Float
+  batteryScore       Int
+  softwareScore      Int
+  partsScore         Int
+  partsCoverage      Float
+
+  batteryHealthPercent Int?
+  batteryCycleCount    Int?
+  iosVersion           String?
+  buildVersion         String?
+
+  engineVersion    String
+  algorithmVersion String
+
+  /// The verbatim bridge capture. Kept so any inspection can be re-scored.
+  snapshot Json
+  /// The scored result as rendered to the technician at inspection time.
+  result   Json
+
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device       Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bridge       BridgeRegistration? @relation(fields: [bridgeId], references: [id], onDelete: SetNull)
+  customer     Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  partResults  PartResultRecord[]
+  findings     FindingRecord[]
+  reports      Report[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, verificationStatus])
+  @@index([deviceId, createdAt])
+  @@map("inspections")
+}
+
+/// Per-component verdicts, denormalised out of the result JSON so the fleet
+/// analytics ("how many third-party displays did we see this month") are plain
+/// SQL rather than JSON traversal.
+model PartResultRecord {
+  id           String        @id @default(cuid())
+  inspectionId String
+  component    PartComponent
+  verdict      PartVerdict
+  confidence   Float
+  weight       Float
+  rationale    String
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([component, verdict])
+  @@map("part_results")
+}
+
+model FindingRecord {
+  id           String   @id @default(cuid())
+  inspectionId String
+  code         String
+  severity     Severity
+  title        String
+  detail       String
+  source       String
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([code])
+  @@map("findings")
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  organizationId String
+  inspectionId   String
+  /// Short unguessable id embedded in the QR code and public verify URL.
+  publicId       String   @unique
+  format         String   @default("pdf")
+  storageKey     String
+  /// SHA-256 of the generated file, so a shared PDF can be proven unaltered.
+  checksum       String
+  sizeBytes      Int
+  downloadCount  Int      @default(0)
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inspection   Inspection   @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("reports")
+}
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String   @unique
+  prefix         String
+  scopes         String[]
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("api_keys")
+}
+
+/// Append-only audit trail. Inspections underwrite commercial decisions, so
+/// who ran what, from where, and when has to be answerable months later.
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorType      String
+  actorId        String?
+  action         String
+  entity         String
+  entityId       String?
+  ip             String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
