@@ -1,0 +1,30 @@
+{
+  "name": "@devdna/bridge",
+  "version": "0.1.0",
+  "description": "DevDNA Bridge — local USB device agent for macOS and Windows.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": { "devdna-bridge": "./dist/cli.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch src/cli.ts serve",
+    "start": "node dist/cli.js serve",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@devdna/core": "workspace:*",
+    "@fastify/cors": "^10.0.2",
+    "fastify": "^5.2.1",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/ws": "^8.5.14",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
