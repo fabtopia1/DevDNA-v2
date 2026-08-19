@@ -1,4 +1,4 @@
-import { PartComponent } from '../types/parts.js';
+import { EvidenceSubject } from '../evidence/types.js';
 
 export interface DeviceCatalogEntry {
   productType: string;
@@ -137,24 +137,45 @@ export function resolveDevice(productType: string | null | undefined): ResolvedD
   };
 }
 
-/** Components that physically exist on a given model. */
-export function applicableComponents(device: ResolvedDevice): PartComponent[] {
-  const parts: PartComponent[] = [
-    PartComponent.DISPLAY,
-    PartComponent.BATTERY,
-    PartComponent.REAR_CAMERA,
-    PartComponent.FRONT_CAMERA,
-    PartComponent.LOGIC_BOARD,
-    PartComponent.REAR_HOUSING,
-    PartComponent.SPEAKER,
-    PartComponent.MICROPHONE,
-    PartComponent.TAPTIC_ENGINE,
+/**
+ * Components that physically exist on a given model.
+ *
+ * Used to scope the Service Evidence Engine: a device is never penalised for
+ * lacking hardware it never had, and coverage is measured against what the
+ * model actually contains rather than a fixed list.
+ */
+export function applicableComponents(device: ResolvedDevice): EvidenceSubject[] {
+  const parts: EvidenceSubject[] = [
+    EvidenceSubject.DISPLAY,
+    EvidenceSubject.BATTERY,
+    EvidenceSubject.REAR_CAMERA,
+    EvidenceSubject.FRONT_CAMERA,
+    EvidenceSubject.LOGIC_BOARD,
+    EvidenceSubject.REAR_HOUSING,
+    EvidenceSubject.SPEAKER,
+    EvidenceSubject.MICROPHONE,
+    EvidenceSubject.TAPTIC_ENGINE,
   ];
-  if (device.biometrics === 'FACE_ID') parts.push(PartComponent.FACE_ID);
-  if (device.biometrics === 'TOUCH_ID') parts.push(PartComponent.TOUCH_ID);
-  if (device.hasLidar) parts.push(PartComponent.LIDAR);
+  if (device.biometrics === 'FACE_ID') parts.push(EvidenceSubject.FACE_ID);
+  if (device.biometrics === 'TOUCH_ID') parts.push(EvidenceSubject.TOUCH_ID);
+  if (device.hasLidar) parts.push(EvidenceSubject.LIDAR);
   return parts;
 }
+
+/**
+ * Components iOS tracks on the Parts and Service History screen.
+ *
+ * This list is what makes "absent from a section that is present" meaningful:
+ * absence only implies no service record for components iOS would have listed.
+ */
+export const SERVICE_HISTORY_TRACKED: readonly EvidenceSubject[] = [
+  EvidenceSubject.DISPLAY,
+  EvidenceSubject.BATTERY,
+  EvidenceSubject.REAR_CAMERA,
+  EvidenceSubject.FRONT_CAMERA,
+  EvidenceSubject.FACE_ID,
+  EvidenceSubject.TOUCH_ID,
+];
 
 /**
  * Marketing capacities in GB. `TotalDiskCapacity` is always smaller than the

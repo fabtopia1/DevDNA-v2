@@ -1,9 +1,9 @@
-import { CollectionErrorCode } from '../types/common.js';
+import { FailureReason } from '../evidence/types.js';
 import {
   AppleServiceHistoryLabel,
   type RawDeviceSnapshot,
   type ServiceHistoryAttestation,
-} from '../types/device.js';
+} from '../capture/snapshot.js';
 
 /**
  * Deterministic device fixtures.
@@ -20,7 +20,8 @@ export type SimulatorProfileId =
   | 'serviced-14-pro'
   | 'counterfeit-display-13'
   | 'activation-locked-12'
-  | 'legacy-sparse-8';
+  | 'legacy-sparse-8'
+  | 'tampered-identity-13';
 
 export interface SimulatorProfile {
   id: SimulatorProfileId;
@@ -78,7 +79,7 @@ function pristine15Pro(): RawDeviceSnapshot {
       ModelNumber: 'MTUW3',
       RegionInfo: 'LL/A',
       SerialNumber: 'K7XVL2Q9PN',
-      InternationalMobileEquipmentIdentity: '353XXXXXXXXXX21',
+      InternationalMobileEquipmentIdentity: '353281112345672',
       CPUArchitecture: 'arm64e',
       ActivationState: 'Activated',
       PasswordProtected: true,
@@ -132,6 +133,7 @@ function serviced14Pro(): RawDeviceSnapshot {
       ModelNumber: 'MQ0G3',
       RegionInfo: 'B/A',
       SerialNumber: 'FK2Q7WXYZ1',
+      InternationalMobileEquipmentIdentity: '351769061019290',
       CPUArchitecture: 'arm64e',
       ActivationState: 'Activated',
       PasswordProtected: false,
@@ -183,7 +185,7 @@ function counterfeitDisplay13(): RawDeviceSnapshot {
       BuildVersion: '21G93',
       UniqueDeviceID: '00008110-000E4C1A2288801E',
       DeviceClass: 'iPhone',
-      HardwareModel: 'D16AP',
+      HardwareModel: 'D17AP',
       ModelNumber: 'MLPF3',
       RegionInfo: 'ZP/A',
       SerialNumber: 'H2LM90PQRS',
@@ -289,8 +291,8 @@ function legacySparse8(): RawDeviceSnapshot {
       HardwareModel: 'D20AP',
       ModelNumber: 'MQ6G2',
       RegionInfo: 'X/A',
-      SerialNumber: 'DNPQ55ABCD',
-      CPUArchitecture: 'arm64',
+      SerialNumber: 'DNPT55ABCDEF',
+      CPUArchitecture: 'arm64e',
       ActivationState: 'Activated',
       PasswordProtected: false,
       TotalDiskCapacity: 64_000_000_000,
@@ -306,16 +308,71 @@ function legacySparse8(): RawDeviceSnapshot {
     errors: [
       {
         collector: 'battery.ioregistry',
-        code: CollectionErrorCode.SERVICE_UNAVAILABLE,
+        code: FailureReason.SERVICE_UNAVAILABLE,
         message:
           'com.apple.mobile.diagnostics_relay declined the AppleSmartBattery query on this iOS build.',
       },
       {
         collector: 'analytics.crashreport',
-        code: CollectionErrorCode.SERVICE_UNAVAILABLE,
+        code: FailureReason.SERVICE_UNAVAILABLE,
         message: 'No aggregated analytics files are stored on the device.',
       },
     ],
+  });
+}
+
+
+/**
+ * A handset whose identifiers and hardware contradict the model it claims to
+ * be: an IMEI that fails its own checksum, a logic board from a different
+ * model, a storage tier never sold, and a serial from the wrong production era.
+ *
+ * This is the case the Identity and Hardware Consistency engines exist for, and
+ * none of it depends on any service-history evidence at all.
+ */
+function tamperedIdentity13(): RawDeviceSnapshot {
+  return baseSnapshot({
+    lockdown: {
+      DeviceName: 'iPhone',
+      ProductType: 'iPhone14,5',
+      ProductVersion: '17.6.1',
+      BuildVersion: '21G93',
+      UniqueDeviceID: '00008110-001C4D2E0EC0801E',
+      DeviceClass: 'iPhone',
+      // iPhone 14 Pro board reported by a device claiming to be an iPhone 13.
+      HardwareModel: 'D63AP',
+      ModelNumber: 'MLPF3',
+      RegionInfo: 'LL/A',
+      // 12-character legacy serial on a model that shipped randomised serials.
+      SerialNumber: 'F17NQ8ABCDEF',
+      // Correct digits with a deliberately wrong final check digit.
+      InternationalMobileEquipmentIdentity: '353281112345671',
+      CPUArchitecture: 'arm64e',
+      ActivationState: 'Activated',
+      PasswordProtected: false,
+      TotalDiskCapacity: 64_000_000_000,
+    },
+    domains: {
+      'com.apple.disk_usage': {
+        TotalDiskCapacity: 64_000_000_000,
+        TotalDataCapacity: 55_247_314_944,
+        TotalDataAvailable: 30_000_000_000,
+      },
+      'com.apple.mobile.battery': { BatteryCurrentCapacity: 68, BatteryIsCharging: false },
+      'com.apple.mobile.mobilegestalt': { DisplaySupportsTrueTone: true, SupportsFaceID: true },
+      'com.apple.fmip': { IsAssociated: false },
+      'com.apple.mobile.cloud_configuration': { IsSupervised: false },
+    },
+    ioregistry: {
+      AppleSmartBattery: {
+        DesignCapacity: 3227,
+        NominalChargeCapacity: 3050,
+        CycleCount: 180,
+        CurrentCapacity: 68,
+        Serial: 'F9K1120B7ZXCVBNM',
+        BatteryInstalled: true,
+      },
+    },
   });
 }
 
@@ -343,6 +400,12 @@ export const SIMULATOR_PROFILES: SimulatorProfile[] = [
     label: 'iPhone 12 — activation locked',
     description: 'Find My enabled and MDM supervised; not resellable as-is.',
     build: activationLocked12,
+  },
+  {
+    id: 'tampered-identity-13',
+    label: 'iPhone 13 - contradictory identifiers',
+    description: 'Invalid IMEI checksum, foreign logic board, and a storage tier never sold.',
+    build: tamperedIdentity13,
   },
   {
     id: 'legacy-sparse-8',

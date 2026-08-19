@@ -1,4 +1,4 @@
-import type { AnalyticsExtract } from '../types/device.js';
+import type { AnalyticsExtract } from '../capture/snapshot.js';
 
 /**
  * Extractor for Apple's aggregated analytics files.
