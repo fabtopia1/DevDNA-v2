@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { Inject } from '@nestjs/common';
 import { BRIDGE_KEY, IS_PUBLIC_KEY, type AuthenticatedUser } from '../decorators';
+import { DEV_PRINCIPAL } from '../dev-auth';
 import { CONFIG_TOKEN, type AppConfig } from '../../config/configuration';
 
 @Injectable()
@@ -25,6 +26,17 @@ export class JwtAuthGuard implements CanActivate {
     if (this.reflector.getAllAndOverride<boolean>(BRIDGE_KEY, targets)) return true;
 
     const request = context.switchToHttp().getRequest();
+
+    // Development bypass: inject the fake principal and skip verification
+    // entirely. Deliberately placed after the @Public and @BridgeAuth checks so
+    // that those routes keep behaving identically in both modes, and before any
+    // header parsing so no token is required. Refused in production by the
+    // config loader, which throws rather than boot.
+    if (this.config.devAuthBypass) {
+      request.user = { ...DEV_PRINCIPAL } satisfies AuthenticatedUser;
+      return true;
+    }
+
     const header = request.headers['authorization'] as string | undefined;
     if (!header?.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing bearer token');

@@ -131,4 +131,4 @@ whole without one. See `packages/core/src/adapters/types.ts`.
 | `apps/api` | NestJS: tenancy, ingestion, persistence, reports, audit |
 | `apps/web` | Next.js dashboard, evidence drawer, public verification |
 
-**132 tests**: 97 core, 7 bridge, 28 API end-to-end against real PostgreSQL.
+**138 tests**: 97 core, 7 bridge, 34 API end-to-end against real PostgreSQL.

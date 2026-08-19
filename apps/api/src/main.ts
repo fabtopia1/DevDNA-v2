@@ -54,7 +54,10 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
   await app.listen(config.port, '0.0.0.0');
-  logger.log(`DevDNA API listening on :${config.port} (${config.nodeEnv})`);
+  logger.log(
+    `DevDNA API listening on :${config.port} (${config.nodeEnv})` +
+      (config.devAuthBypass ? ' — AUTHENTICATION DISABLED (DEV_AUTH_BYPASS)' : ''),
+  );
 }
 
 void bootstrap();

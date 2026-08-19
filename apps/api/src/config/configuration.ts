@@ -16,6 +16,14 @@ export interface AppConfig {
   bridgeRequestSkewSeconds: number;
   /** Persist raw UDIDs/serials rather than only salted hashes. */
   retainPlaintextIdentifiers: boolean;
+  /**
+   * Local-development authentication bypass.
+   *
+   * When true, every guarded route accepts an injected fake principal and no
+   * token is required. This is a total removal of authentication, so it is
+   * refused outright when NODE_ENV=production — see `loadConfiguration`.
+   */
+  devAuthBypass: boolean;
 }
 
 const required = (name: string, value: string | undefined, fallback?: string): string => {
@@ -40,6 +48,20 @@ export const loadConfiguration = (): AppConfig => {
   // to boot on a default secret rather than silently accepting a known key.
   const devDefault = (name: string, value: string): string | undefined =>
     isProd ? undefined : value;
+
+  // A single mistyped environment variable must never be able to serve an
+  // unauthenticated API to the internet. This is the one config value that
+  // fails the boot rather than falling back to a safe default, because a
+  // silent fallback would leave the operator believing bypass was active while
+  // the app rejected their requests - and, far worse, the inverse mistake is
+  // unrecoverable once traffic reaches it.
+  const devAuthBypass = bool(process.env['DEV_AUTH_BYPASS'], false);
+  if (devAuthBypass && isProd) {
+    throw new Error(
+      'DEV_AUTH_BYPASS is enabled but NODE_ENV=production. This would disable ' +
+        'authentication on every route. Refusing to start.',
+    );
+  }
 
   return {
     port: num(process.env['PORT'], 4000),
@@ -71,6 +93,7 @@ export const loadConfiguration = (): AppConfig => {
     reportStorageDir: process.env['REPORT_STORAGE_DIR'] ?? '.data/reports',
     bridgeRequestSkewSeconds: num(process.env['BRIDGE_SKEW_SECONDS'], 300),
     retainPlaintextIdentifiers: bool(process.env['RETAIN_PLAINTEXT_IDENTIFIERS'], false),
+    devAuthBypass,
   };
 };
 

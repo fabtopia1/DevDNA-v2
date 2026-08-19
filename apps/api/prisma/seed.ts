@@ -6,6 +6,13 @@ import { AuditService } from '../src/common/audit.service';
 import { CryptoService } from '../src/common/crypto.service';
 import { InspectionsService } from '../src/modules/inspections/inspections.service';
 import { loadConfiguration } from '../src/config/configuration';
+import {
+  DEV_ORGANIZATION_ID,
+  DEV_ORGANIZATION_NAME,
+  DEV_PRINCIPAL,
+  DEV_USER_ID,
+  DEV_USER_NAME,
+} from '../src/common/dev-auth';
 
 /**
  * Seeds a working demo tenant.
@@ -24,31 +31,53 @@ const DEMO_EMAIL = 'owner@demoshop.test';
 const DEMO_PASSWORD = 'DevDNA-demo-2026';
 
 async function main(): Promise<void> {
+  const config = loadConfiguration();
   const prisma = new PrismaService();
   await prisma.$connect();
   const inspections = new InspectionsService(
     prisma,
     new AuditService(prisma),
     new CryptoService(),
-    loadConfiguration(),
+    config,
   );
+
+  // Under DEV_AUTH_BYPASS the injected principal names a specific organization
+  // and user. Seeding into that same workspace is what makes the bypass useful:
+  // seeding elsewhere would leave the dev user staring at an empty dashboard
+  // and looking for a bug that is not there.
+  const devMode = config.devAuthBypass;
+  const slug = devMode ? 'devdna-development' : 'demo-repair-co';
+
+  // Both seed workspaces are cleared, not just the one being written.
+  //
+  // User.email is globally unique rather than unique per organization, so
+  // leaving the other seeded workspace in place makes the second `pnpm seed`
+  // collide on owner@demoshop.test. Seeding is a reset: you get one seeded
+  // workspace, in whichever mode you asked for.
+  const SEED_SLUGS = ['demo-repair-co', 'devdna-development'];
 
   const log = (message: string): void => {
     process.stdout.write(`${message}\n`);
   };
 
   try {
-    const existing = await prisma.organization.findUnique({ where: { slug: 'demo-repair-co' } });
-    if (existing) {
-      log('Demo organization already present - removing and reseeding.');
-      await prisma.organization.delete({ where: { id: existing.id } });
+    const stale = await prisma.organization.findMany({
+      where: { slug: { in: SEED_SLUGS } },
+      select: { id: true, slug: true },
+    });
+    for (const organization of stale) {
+      log(`Removing existing seed workspace "${organization.slug}".`);
+      await prisma.organization.delete({ where: { id: organization.id } });
     }
 
     const organization = await prisma.organization.create({
       data: {
-        name: 'Demo Repair Co',
-        slug: 'demo-repair-co',
-        plan: 'trial',
+        // A fixed id in dev mode so the seeded workspace is the one the
+        // bypassed principal points at.
+        ...(devMode ? { id: DEV_ORGANIZATION_ID } : {}),
+        name: devMode ? DEV_ORGANIZATION_NAME : 'Demo Repair Co',
+        slug,
+        plan: devMode ? 'development' : 'trial',
         identifierSalt: randomBytes(24).toString('hex'),
       },
     });
@@ -81,6 +110,23 @@ async function main(): Promise<void> {
         role: 'VIEWER',
       },
     });
+
+    // Deleting the organization above cascades to its users, so the bypass
+    // account is recreated here rather than relying on the API's boot-time
+    // upsert having already run.
+    if (devMode) {
+      await prisma.user.create({
+        data: {
+          id: DEV_USER_ID,
+          organizationId: organization.id,
+          email: DEV_PRINCIPAL.email,
+          name: DEV_USER_NAME,
+          // Not a valid Argon2 hash: this account can never be signed into.
+          passwordHash: '!dev-auth-bypass-account-has-no-password',
+          role: DEV_PRINCIPAL.role,
+        },
+      });
+    }
 
     const bridge = await prisma.bridgeRegistration.create({
       data: {
@@ -134,9 +180,13 @@ async function main(): Promise<void> {
         `  inspections   ${created}`,
         `  evidence      ${evidenceCount} records, ${inferenceCount} inferences`,
         '',
-        '  Sign in with:',
-        `    email     ${DEMO_EMAIL}`,
-        `    password  ${DEMO_PASSWORD}`,
+        ...(devMode
+          ? [
+              '  DEV_AUTH_BYPASS is on — no sign-in required.',
+              `    acting as  ${DEV_PRINCIPAL.email} (${DEV_PRINCIPAL.role})`,
+              `    workspace  ${DEV_ORGANIZATION_ID}`,
+            ]
+          : ['  Sign in with:', `    email     ${DEMO_EMAIL}`, `    password  ${DEMO_PASSWORD}`]),
         '',
       ].join('\n'),
     );

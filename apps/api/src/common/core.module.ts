@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { CryptoService } from './crypto.service';
 import { PrismaService } from './prisma.service';
+import { DevAuthService } from './dev-auth';
 import { BridgeSignatureGuard } from './guards/bridge-signature.guard';
 import { CONFIG_TOKEN, loadConfiguration } from '../config/configuration';
 
@@ -18,7 +19,15 @@ import { CONFIG_TOKEN, loadConfiguration } from '../config/configuration';
     AuditService,
     CryptoService,
     BridgeSignatureGuard,
+    DevAuthService,
   ],
-  exports: [CONFIG_TOKEN, PrismaService, AuditService, CryptoService, BridgeSignatureGuard],
+  exports: [
+    CONFIG_TOKEN,
+    PrismaService,
+    AuditService,
+    CryptoService,
+    BridgeSignatureGuard,
+    DevAuthService,
+  ],
 })
 export class CoreModule {}

@@ -1,8 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/session';
+import { devAuthBypassEnabled } from '@/lib/dev-auth';
 
 /** Routes that render without a session. */
 const PUBLIC_PATHS = [/^\/login$/, /^\/verify(\/|$)/, /^\/api\/auth\//];
+
+/**
+ * Convenience aliases.
+ *
+ * `/reports` and `/workstations` are not routes in this app — reports are
+ * generated from an inspection and listed on it, and workstations are managed
+ * under settings. Rather than 404 on a URL someone reasonably expects to work,
+ * both redirect to the page that actually holds that content.
+ */
+const ALIASES: Record<string, string> = {
+  '/reports': '/inspections',
+  '/workstations': '/settings',
+};
 
 /**
  * Auth gate plus a per-request Content-Security-Policy.
@@ -37,7 +51,19 @@ export function middleware(request: NextRequest) {
   ].join('; ');
 
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((pattern) => pattern.test(pathname));
+  const bypass = devAuthBypassEnabled();
+
+  const alias = ALIASES[pathname.replace(/\/$/, '')];
+  if (alias) return NextResponse.redirect(new URL(alias, request.url));
+
+  // With the bypass on there is no session to gate on and no sign-in screen to
+  // send anyone to, so /login redirects into the app rather than rendering a
+  // form that cannot do anything.
+  if (bypass && pathname === '/login') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  const isPublic = bypass || PUBLIC_PATHS.some((pattern) => pattern.test(pathname));
 
   if (!isPublic && !request.cookies.get(ACCESS_COOKIE)) {
     const login = new URL('/login', request.url);

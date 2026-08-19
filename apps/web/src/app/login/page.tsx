@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation';
 import { LoginForm } from '@/components/login-form';
+import { devAuthBypassEnabled } from '@/lib/dev-auth';
 
 export const metadata = { title: 'Sign in · DevDNA' };
 
@@ -13,6 +15,11 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
+  // Requirement of the bypass: the sign-in screen does not exist while it is
+  // on. The middleware already redirects, but a direct render (a hard refresh,
+  // a bookmarked link) must not paint a form that cannot authenticate.
+  if (devAuthBypassEnabled()) redirect('/dashboard');
+
   const { next } = await searchParams;
   // Only same-origin relative paths are accepted, so a crafted link cannot
   // bounce a freshly signed-in technician to another site.

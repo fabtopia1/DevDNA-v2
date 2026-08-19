@@ -148,12 +148,12 @@ iPhone ──USB──► DevDNA Bridge ──loopback──► Dashboard ──
 |---|---|
 | `packages/core` | Evidence ledger, provenance enforcement, confidence model, seven modules, device catalog. Pure and deterministic. **97 tests.** |
 | `apps/bridge` | Local USB agent, CLI and loopback API. **7 tests.** |
-| `apps/api` | NestJS: tenancy, signed ingest, evidence persistence, re-scoring, PDF reports, audit. **28 e2e tests.** |
+| `apps/api` | NestJS: tenancy, signed ingest, evidence persistence, re-scoring, PDF reports, audit. **34 e2e tests.** |
 | `apps/web` | Next.js dashboard, evidence drawer, public verification. |
 | `docs/` | Nine deliverable documents — [start here](docs/README.md). |
 
 ```bash
-pnpm -r test        # 132 tests
+pnpm -r test        # 138 tests
 pnpm -r typecheck
 pnpm -r build
 ```
