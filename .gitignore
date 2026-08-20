@@ -18,3 +18,10 @@ apps/api/.data/
 apps/api/.env
 apps/api/.env.test
 apps/web/.next/
+
+# PhysicalDNA ML pipeline
+ml/.venv/
+ml/data/
+ml/runs/
+ml/artifacts/
+ml/**/__pycache__/

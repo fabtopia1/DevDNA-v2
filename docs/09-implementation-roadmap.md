@@ -2,8 +2,8 @@
 
 ## Where this stands
 
-Built and passing **138 tests** (97 core, 7 bridge, 34 API end-to-end against
-real PostgreSQL):
+Built and passing **185 tests** (97 core, 47 PhysicalDNA, 7 bridge, 34 API
+end-to-end against real PostgreSQL):
 
 | Layer | State |
 |---|---|

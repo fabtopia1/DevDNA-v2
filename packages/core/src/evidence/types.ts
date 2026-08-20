@@ -27,6 +27,18 @@ export enum EvidenceSubject {
   SPEAKER = 'SPEAKER',
   MICROPHONE = 'MICROPHONE',
   TAPTIC_ENGINE = 'TAPTIC_ENGINE',
+  /**
+   * Physical surfaces, added for PhysicalDNA.
+   *
+   * Note what is *not* here: front glass and rear glass do not get their own
+   * subjects, because they are the outward faces of DISPLAY and REAR_HOUSING,
+   * which already exist. Keeping them as one subject is what lets a report say
+   * "display: REPLACED_LIKELY (service evidence), CONDITION_FAIR (physical)" -
+   * two modules answering two different questions about the same part, rather
+   * than two vocabularies that can never be joined.
+   */
+  FRAME = 'FRAME',
+  CHARGE_PORT = 'CHARGE_PORT',
 }
 
 /** Components a service verdict can be produced for. */
@@ -75,6 +87,17 @@ export enum EvidenceKind {
   HUMAN_ATTESTATION = 'HUMAN_ATTESTATION',
   /** A fact supplied by an external authority via an adapter. */
   EXTERNAL_RECORD = 'EXTERNAL_RECORD',
+  /**
+   * Something seen in a photograph of the device.
+   *
+   * A detection is an *observation*, not a judgement: "a region matching the
+   * DEEP_SCRATCH class was located at these coordinates in this image, by this
+   * model version". Whether that makes the device Fair or Good is an inference,
+   * derived later and citing this record.
+   */
+  VISUAL_OBSERVATION = 'VISUAL_OBSERVATION',
+  /** A measured property of a captured image (sharpness, exposure, glare). */
+  IMAGE_QUALITY_METRIC = 'IMAGE_QUALITY_METRIC',
 }
 
 /** Which authority the datum came from. */
@@ -86,6 +109,10 @@ export enum EvidenceSource {
   OEM_SERVICE_API = 'OEM_SERVICE_API',
   REPAIR_NETWORK = 'REPAIR_NETWORK',
   DEVDNA_CATALOG = 'DEVDNA_CATALOG',
+  /** DevDNA's own defect detection model. Named with its version on every record. */
+  DEVDNA_VISION_MODEL = 'DEVDNA_VISION_MODEL',
+  /** DevDNA's guided capture and image validation pipeline. */
+  DEVDNA_CAPTURE_PIPELINE = 'DEVDNA_CAPTURE_PIPELINE',
 }
 
 /** How the datum was obtained. */
@@ -100,6 +127,9 @@ export enum CollectionMethod {
   OCR_EXTRACTION = 'OCR_EXTRACTION',
   EXTERNAL_ADAPTER_QUERY = 'EXTERNAL_ADAPTER_QUERY',
   CATALOG_LOOKUP = 'CATALOG_LOOKUP',
+  VISION_MODEL_DETECTION = 'VISION_MODEL_DETECTION',
+  IMAGE_QUALITY_ANALYSIS = 'IMAGE_QUALITY_ANALYSIS',
+  GUIDED_PHOTO_CAPTURE = 'GUIDED_PHOTO_CAPTURE',
 }
 
 /**
@@ -156,9 +186,29 @@ export const CHANNEL_RELIABILITY: Record<CollectionMethod, number> = {
   [CollectionMethod.LOCKDOWN_GLOBAL_QUERY]: 0.97,
   [CollectionMethod.LOCKDOWN_DOMAIN_QUERY]: 0.95,
   [CollectionMethod.CATALOG_LOOKUP]: 0.95,
+  // Deterministic arithmetic over pixels. Reliable as a *measurement*; whether
+  // the threshold it is compared against is the right one is a separate matter.
+  [CollectionMethod.IMAGE_QUALITY_ANALYSIS]: 0.97,
   [CollectionMethod.DIAGNOSTICS_RELAY_IOREGISTRY]: 0.92,
   [CollectionMethod.INSTALLATION_PROXY_LIST]: 0.9,
   [CollectionMethod.SERVICE_PROBE]: 0.85,
+  // That a photograph is of the view it claims to be. Guided capture makes this
+  // likely, not certain: a technician can photograph the wrong edge.
+  [CollectionMethod.GUIDED_PHOTO_CAPTURE]: 0.9,
+  /*
+   * Baseline only, and deliberately low.
+   *
+   * Every real detection overrides this with the *calibrated* reliability for
+   * its class, measured as held-out precision on the benchmark set - never the
+   * model's own softmax score. A network's confidence is a statement about its
+   * activation, not about the world, and a system that treats the two as the
+   * same thing is exactly the black box this architecture exists to avoid.
+   *
+   * This value is what an *uncalibrated* class falls back to, and it is set
+   * where it is so that shipping a class without calibrating it visibly costs
+   * confidence rather than silently borrowing it.
+   */
+  [CollectionMethod.VISION_MODEL_DETECTION]: 0.75,
   // Analytics files can be stale, partial, or absent after an erase.
   [CollectionMethod.CRASH_REPORT_COPY]: 0.72,
   [CollectionMethod.TECHNICIAN_INPUT]: 0.7,

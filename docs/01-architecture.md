@@ -131,4 +131,8 @@ whole without one. See `packages/core/src/adapters/types.ts`.
 | `apps/api` | NestJS: tenancy, ingestion, persistence, reports, audit |
 | `apps/web` | Next.js dashboard, evidence drawer, public verification |
 
-**138 tests**: 97 core, 7 bridge, 34 API end-to-end against real PostgreSQL.
+**185 tests**: 97 core, 47 PhysicalDNA, 7 bridge, 34 API end-to-end against real
+PostgreSQL.
+
+PhysicalDNA — physical condition from photographs, under the same evidence rules
+— is documented separately: [physicaldna/README.md](physicaldna/README.md).

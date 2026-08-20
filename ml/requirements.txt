@@ -1,0 +1,12 @@
+# Pinned loosely; lock before the first training run.
+ultralytics>=8.3,<9          # YOLO11 detection/segmentation
+torch>=2.4
+torchvision>=0.19
+albumentations>=1.4          # augmentation
+pycocotools>=2.0.8           # COCO-format IO and mAP
+numpy>=1.26
+opencv-python-headless>=4.10
+pydantic>=2.9                # dataset + config schemas
+pyyaml>=6.0
+mlflow>=2.16                 # experiment tracking + model registry
+scikit-learn>=1.5            # calibration curves, PR analysis

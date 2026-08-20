@@ -32,6 +32,13 @@ One rule generates the rest:
 | 11 | [Security architecture](11-security-architecture.md) | Threat model, secrets, personal data, both audits |
 | 12 | [Risks and limitations](12-risks-and-limitations.md) | The four hard limits, and what must never be claimed |
 
+## PhysicalDNA
+
+SoftwareDNA answers *is this device what it claims to be?* [PhysicalDNA](physicaldna/README.md)
+answers *what condition is it in?* — from photographs, under the same
+evidence-first rules, with the detector held behind an interface as a sensor
+rather than a judge.
+
 ## The rules this system is built to
 
 - Absence of evidence is never evidence of authenticity.

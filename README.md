@@ -150,10 +150,12 @@ iPhone ──USB──► DevDNA Bridge ──loopback──► Dashboard ──
 | `apps/bridge` | Local USB agent, CLI and loopback API. **7 tests.** |
 | `apps/api` | NestJS: tenancy, signed ingest, evidence persistence, re-scoring, PDF reports, audit. **34 e2e tests.** |
 | `apps/web` | Next.js dashboard, evidence drawer, public verification. |
-| `docs/` | Nine deliverable documents — [start here](docs/README.md). |
+| `packages/physical` | PhysicalDNA: guided capture validation, defect taxonomy, condition scoring. **47 tests.** |
+| `ml/` | PhysicalDNA model pipeline: dataset tooling, training, benchmark → calibration. |
+| `docs/` | Nine deliverable documents — [start here](docs/README.md) — plus the [PhysicalDNA blueprint](docs/physicaldna/README.md). |
 
 ```bash
-pnpm -r test        # 138 tests
+pnpm -r test        # 185 tests
 pnpm -r typecheck
 pnpm -r build
 ```

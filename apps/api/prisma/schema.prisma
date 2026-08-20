@@ -48,6 +48,7 @@ enum ModuleId {
   SERVICE_EVIDENCE
   BATTERY_INTELLIGENCE
   SECURITY_DNA
+  PHYSICAL_CONDITION
   TRUST
 }
 
@@ -78,6 +79,12 @@ enum EvidenceSubject {
   SPEAKER
   MICROPHONE
   TAPTIC_ENGINE
+  /// Physical surfaces, added for PhysicalDNA. Front and rear glass reuse
+  /// DISPLAY and REAR_HOUSING: they are the outward faces of parts that
+  /// already have subjects, and keeping them joined is what lets one report
+  /// carry both a service verdict and a condition verdict for the same part.
+  FRAME
+  CHARGE_PORT
 }
 
 /// The Service Evidence Engine's entire vocabulary. Deliberately three values:

@@ -1,0 +1,60 @@
+# PhysicalDNA baseline detector.
+#
+# Chosen for the first production version. See
+# docs/physicaldna/04-model-comparison.md for why this and not the alternatives.
+
+name: physicaldna-baseline
+taxonomy_version: "1.0.0"
+
+model:
+  # Segmentation, not detection. 21 of 43 classes are POLYGON or MASK, and a
+  # box around a diagonal hairline crack overstates its area by roughly an
+  # order of magnitude — which then feeds straight into the extent factor and
+  # therefore into the score.
+  arch: yolo11m-seg
+  pretrained: yolo11m-seg.pt
+  imgsz: 1280          # defects are small; 640 loses hairline cracks entirely
+  device: 0
+
+train:
+  epochs: 150
+  batch: 8
+  optimizer: AdamW
+  lr0: 0.001
+  lrf: 0.01
+  warmup_epochs: 3
+  patience: 30
+  cos_lr: true
+  # Class imbalance is severe by nature: light scratches outnumber shattered
+  # glass by orders of magnitude. Handled by sampling, not by loss weighting,
+  # so the calibration measured later stays interpretable.
+  balanced_sampling: true
+
+augment:
+  # Geometry: safe. A scratch is a scratch upside down.
+  fliplr: 0.5
+  flipud: 0.2
+  degrees: 15
+  scale: 0.4
+  translate: 0.1
+  # Photometric: deliberately strong. Shop lighting is the single biggest
+  # source of domain shift between the collection sites and the field.
+  hsv_h: 0.015
+  hsv_s: 0.5
+  hsv_v: 0.4
+  # Mosaic is disabled for the final epochs: it fabricates defect adjacencies
+  # that never occur on a real device and hurts localisation of small objects.
+  mosaic: 0.8
+  close_mosaic: 20
+  # NOT used: heavy blur or noise augmentation. Production rejects blurred
+  # images at the gate, so training the model to cope with them teaches it to
+  # make confident predictions on exactly the inputs we refuse to trust.
+
+eval:
+  iou: 0.5
+  target_precision: 0.9
+  min_benchmark_samples: 50
+
+tracking:
+  backend: mlflow
+  experiment: physicaldna-detector

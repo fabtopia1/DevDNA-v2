@@ -1,0 +1,945 @@
+{
+  "taxonomyVersion": "1.0.0",
+  "generatedAt": "2026-08-20T00:09:03.020Z",
+  "classes": [
+    {
+      "index": 0,
+      "id": "SCRATCH_LIGHT",
+      "group": "SURFACE_DAMAGE",
+      "label": "Light scratch",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.06,
+      "findingSeverity": "INFO",
+      "impact": "Visible in reflected light; does not affect use.",
+      "trustRelevant": false,
+      "annotationRule": "A linear mark visible only at an angle to the light, with no catch when a fingernail is drawn across it. Annotate each scratch separately while they are countable; switch to MICRO_ABRASION_FIELD past roughly eight in a region.",
+      "notToBeConfusedWith": "A reflection or a dust line. If it moves between the two captures of the same surface it is not a scratch."
+    },
+    {
+      "index": 1,
+      "id": "SCRATCH_DEEP",
+      "group": "SURFACE_DAMAGE",
+      "label": "Deep scratch",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.18,
+      "findingSeverity": "LOW",
+      "impact": "Visible under any lighting; reduces resale grade.",
+      "trustRelevant": false,
+      "annotationRule": "A linear mark visible under diffuse light without tilting the device, showing displaced material or a white/bright core.",
+      "notToBeConfusedWith": "CRACK_HAIRLINE, which propagates and has no width."
+    },
+    {
+      "index": 2,
+      "id": "SCUFF",
+      "group": "SURFACE_DAMAGE",
+      "label": "Scuff",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.08,
+      "findingSeverity": "INFO",
+      "impact": "Surface marking without material loss.",
+      "trustRelevant": false,
+      "annotationRule": "A non-linear dulled or marked region with no depth.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 3,
+      "id": "CRACK_HAIRLINE",
+      "group": "SURFACE_DAMAGE",
+      "label": "Hairline crack",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.55,
+      "findingSeverity": "MEDIUM",
+      "impact": "Glass integrity is compromised; the crack will propagate.",
+      "trustRelevant": false,
+      "annotationRule": "A fracture line through the glass, of no measurable width, following an irregular path. Trace the whole line as a polygon — length is what the scorer needs, and a bounding box of a diagonal crack overstates its area.",
+      "notToBeConfusedWith": "SCRATCH_DEEP, which is straight, has width, and does not branch."
+    },
+    {
+      "index": 4,
+      "id": "CRACK_STRUCTURAL",
+      "group": "SURFACE_DAMAGE",
+      "label": "Structural crack",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.8,
+      "findingSeverity": "HIGH",
+      "impact": "Panel replacement required; sealing is compromised.",
+      "trustRelevant": false,
+      "annotationRule": "A fracture with visible width, branching, or an impact origin point.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 5,
+      "id": "SHATTERED_GLASS",
+      "group": "SURFACE_DAMAGE",
+      "label": "Shattered glass",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.95,
+      "findingSeverity": "CRITICAL",
+      "impact": "Panel destroyed; the device is unsafe to handle unrepaired.",
+      "trustRelevant": false,
+      "annotationRule": "Multiple intersecting fractures or missing glass. Mask the affected region rather than each fracture.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 6,
+      "id": "CHIP",
+      "group": "SURFACE_DAMAGE",
+      "label": "Chip",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.35,
+      "findingSeverity": "MEDIUM",
+      "impact": "Material is missing; often the origin of a later crack.",
+      "trustRelevant": false,
+      "annotationRule": "Material absent from an edge or surface, leaving a void.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 7,
+      "id": "GOUGE",
+      "group": "SURFACE_DAMAGE",
+      "label": "Gouge",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.3,
+      "findingSeverity": "MEDIUM",
+      "impact": "Deep material displacement.",
+      "trustRelevant": false,
+      "annotationRule": "A scratch deep enough to show displaced material at its edges.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 8,
+      "id": "DENT",
+      "group": "FRAME_DAMAGE",
+      "label": "Dent",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.32,
+      "findingSeverity": "MEDIUM",
+      "impact": "Impact deformation; may prevent a panel from seating flush.",
+      "trustRelevant": false,
+      "annotationRule": "A localised depression breaking the frame’s edge line.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 9,
+      "id": "BENT_FRAME",
+      "group": "FRAME_DAMAGE",
+      "label": "Bent frame",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.75,
+      "findingSeverity": "HIGH",
+      "impact": "Chassis deformation; sealing and panel fit are compromised.",
+      "trustRelevant": false,
+      "annotationRule": "A deviation of the frame from a straight line along its length, judged against the opposite edge in the same image.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 10,
+      "id": "PAINT_WEAR",
+      "group": "FRAME_DAMAGE",
+      "label": "Paint or coating wear",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.1,
+      "findingSeverity": "INFO",
+      "impact": "Finish worn through to the substrate.",
+      "trustRelevant": false,
+      "annotationRule": "A region where the coating colour differs from the surrounding frame.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 11,
+      "id": "ANODISING_LOSS",
+      "group": "FRAME_DAMAGE",
+      "label": "Anodising loss",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.12,
+      "findingSeverity": "LOW",
+      "impact": "Bare metal exposed; corrosion risk over time.",
+      "trustRelevant": false,
+      "annotationRule": "Bright bare aluminium visible at a corner or edge.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 12,
+      "id": "EDGE_SEPARATION",
+      "group": "FRAME_DAMAGE",
+      "label": "Panel separation",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.6,
+      "findingSeverity": "HIGH",
+      "impact": "A panel is lifting from the chassis; the device is not sealed.",
+      "trustRelevant": true,
+      "annotationRule": "A visible gap between display or rear glass and the frame, wide enough to show a shadow line along its length.",
+      "notToBeConfusedWith": "The normal chamfer highlight, which is continuous and symmetrical on both edges."
+    },
+    {
+      "index": 13,
+      "id": "LENS_SCRATCH",
+      "group": "CAMERA_DAMAGE",
+      "label": "Lens scratch",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "REAR_CAMERA",
+        "FRONT_CAMERA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.4,
+      "findingSeverity": "MEDIUM",
+      "impact": "Will appear as flare or softness in photographs.",
+      "trustRelevant": false,
+      "annotationRule": "A scratch on the lens cover glass, inside the camera aperture.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 14,
+      "id": "LENS_CRACK",
+      "group": "CAMERA_DAMAGE",
+      "label": "Lens crack",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "REAR_CAMERA",
+        "FRONT_CAMERA"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.7,
+      "findingSeverity": "HIGH",
+      "impact": "Photographs are affected; the camera is no longer sealed.",
+      "trustRelevant": false,
+      "annotationRule": "A fracture in the lens cover glass.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 15,
+      "id": "LENS_SHATTERED",
+      "group": "CAMERA_DAMAGE",
+      "label": "Shattered lens",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "REAR_CAMERA",
+        "FRONT_CAMERA"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.9,
+      "findingSeverity": "CRITICAL",
+      "impact": "Camera unusable without repair.",
+      "trustRelevant": false,
+      "annotationRule": "Multiple fractures or missing glass over the lens.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 16,
+      "id": "CAMERA_MODULE_MISALIGNMENT",
+      "group": "CAMERA_DAMAGE",
+      "label": "Camera module misalignment",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "REAR_CAMERA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.45,
+      "findingSeverity": "MEDIUM",
+      "impact": "The module does not sit square in its housing.",
+      "trustRelevant": true,
+      "annotationRule": "A lens ring visibly rotated or offset relative to the camera bump, or an uneven gap around the module.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 17,
+      "id": "CAMERA_INTERNAL_DEBRIS",
+      "group": "CAMERA_DAMAGE",
+      "label": "Debris inside camera",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "REAR_CAMERA",
+        "FRONT_CAMERA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.5,
+      "findingSeverity": "MEDIUM",
+      "impact": "Particles behind the lens cover; the module has been opened or breached.",
+      "trustRelevant": true,
+      "annotationRule": "Dust or fibres visible behind the lens glass, not on it.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 18,
+      "id": "LENS_COATING_DAMAGE",
+      "group": "CAMERA_DAMAGE",
+      "label": "Lens coating damage",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "REAR_CAMERA"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.25,
+      "findingSeverity": "LOW",
+      "impact": "Anti-reflective coating degraded; increased flare.",
+      "trustRelevant": false,
+      "annotationRule": "Patchy discolouration of the lens surface without a scratch line.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 19,
+      "id": "DISPLAY_DEAD_PIXELS",
+      "group": "DISPLAY_DEFECT",
+      "label": "Dead pixel cluster",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.4,
+      "findingSeverity": "MEDIUM",
+      "impact": "Permanently unlit pixels.",
+      "trustRelevant": false,
+      "annotationRule": "Requires the display-on capture. Dark points that persist across test patterns.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 20,
+      "id": "DISPLAY_LINE_DEFECT",
+      "group": "DISPLAY_DEFECT",
+      "label": "Display line",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.7,
+      "findingSeverity": "HIGH",
+      "impact": "Driver or panel fault; the display needs replacement.",
+      "trustRelevant": false,
+      "annotationRule": "A full-width or full-height line of wrong or absent colour, display on.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 21,
+      "id": "DISPLAY_BURN_IN",
+      "group": "DISPLAY_DEFECT",
+      "label": "Burn-in",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.45,
+      "findingSeverity": "MEDIUM",
+      "impact": "Permanent ghost image from static UI elements.",
+      "trustRelevant": false,
+      "annotationRule": "A persistent ghost of UI furniture on a flat grey test pattern. Only annotatable from the grey-field capture.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 22,
+      "id": "DISPLAY_BACKLIGHT_BLEED",
+      "group": "DISPLAY_DEFECT",
+      "label": "Backlight bleed",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.3,
+      "findingSeverity": "LOW",
+      "impact": "Uneven brightness at the panel edge.",
+      "trustRelevant": false,
+      "annotationRule": "Brightness gradient from an edge on a black test pattern.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 23,
+      "id": "DISPLAY_DISCOLOURATION",
+      "group": "DISPLAY_DEFECT",
+      "label": "Display discolouration",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.35,
+      "findingSeverity": "MEDIUM",
+      "impact": "Colour cast across part of the panel.",
+      "trustRelevant": false,
+      "annotationRule": "A region whose colour temperature differs on a white test pattern.",
+      "notToBeConfusedWith": "Camera white balance. Judge only within one image, never across images."
+    },
+    {
+      "index": 24,
+      "id": "DISPLAY_PRESSURE_MARK",
+      "group": "DISPLAY_DEFECT",
+      "label": "Pressure mark",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.4,
+      "findingSeverity": "MEDIUM",
+      "impact": "Localised panel damage from applied force.",
+      "trustRelevant": false,
+      "annotationRule": "A bright or discoloured bloom on a grey field, without a surface mark above it.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 25,
+      "id": "DISPLAY_DELAMINATION",
+      "group": "DISPLAY_DEFECT",
+      "label": "Delamination",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA",
+        "FRONT_GLASS"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.55,
+      "findingSeverity": "HIGH",
+      "impact": "Digitiser separating from the panel.",
+      "trustRelevant": true,
+      "annotationRule": "A rainbow or milky region between glass and panel, usually starting at an edge.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 26,
+      "id": "MICRO_ABRASION_FIELD",
+      "group": "WEAR",
+      "label": "Micro-abrasion",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.12,
+      "findingSeverity": "INFO",
+      "impact": "Fine wear consistent with normal pocket use.",
+      "trustRelevant": false,
+      "annotationRule": "A region of many scratches too numerous to count individually. Mask the region; do not annotate the constituent scratches.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 27,
+      "id": "HEAVY_WEAR_FIELD",
+      "group": "WEAR",
+      "label": "Heavy wear",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "FRONT_GLASS",
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.3,
+      "findingSeverity": "LOW",
+      "impact": "Extensive wear across the surface; grade-limiting.",
+      "trustRelevant": false,
+      "annotationRule": "Dense abrasion covering more than roughly a quarter of the surface.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 28,
+      "id": "BODY_DISCOLOURATION",
+      "group": "WEAR",
+      "label": "Discolouration",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "REAR_GLASS",
+        "FRAME"
+      ],
+      "geometry": "MASK",
+      "severityWeight": 0.2,
+      "findingSeverity": "LOW",
+      "impact": "Colour change from heat, chemicals or UV exposure.",
+      "trustRelevant": false,
+      "annotationRule": "A region whose colour differs from the rest of the same panel.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 29,
+      "id": "MISSING_SCREW",
+      "group": "MISSING_COMPONENT",
+      "label": "Missing screw",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "CHARGE_PORT",
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.35,
+      "findingSeverity": "MEDIUM",
+      "impact": "A pentalobe screw is absent; the device has been opened.",
+      "trustRelevant": true,
+      "annotationRule": "An empty screw boss beside the charge port.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 30,
+      "id": "MISSING_SIM_TRAY",
+      "group": "MISSING_COMPONENT",
+      "label": "Missing SIM tray",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.3,
+      "findingSeverity": "MEDIUM",
+      "impact": "Tray absent; the device is not sealed.",
+      "trustRelevant": false,
+      "annotationRule": "An open SIM aperture with no tray seated.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 31,
+      "id": "MISSING_LENS_RING",
+      "group": "MISSING_COMPONENT",
+      "label": "Missing lens ring",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "REAR_CAMERA"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.4,
+      "findingSeverity": "MEDIUM",
+      "impact": "The camera trim ring is absent; the module has been worked on.",
+      "trustRelevant": true,
+      "annotationRule": "A lens aperture without its metal trim ring.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 32,
+      "id": "MISSING_BUTTON",
+      "group": "MISSING_COMPONENT",
+      "label": "Missing button",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.5,
+      "findingSeverity": "HIGH",
+      "impact": "A volume, power or action button is absent.",
+      "trustRelevant": false,
+      "annotationRule": "An empty button aperture in the frame.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 33,
+      "id": "NON_OEM_SCREW",
+      "group": "REPAIR_INDICATOR",
+      "label": "Non-OEM screw",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "CHARGE_PORT",
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.15,
+      "findingSeverity": "MEDIUM",
+      "impact": "A replacement screw is fitted; the device has been opened.",
+      "trustRelevant": true,
+      "annotationRule": "A screw whose head type (Phillips, flathead) is not the pentalobe Apple fits, or whose finish differs from its neighbour.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 34,
+      "id": "ADHESIVE_RESIDUE",
+      "group": "REPAIR_INDICATOR",
+      "label": "Adhesive residue",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "FRAME",
+        "FRONT_GLASS",
+        "REAR_GLASS"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.15,
+      "findingSeverity": "MEDIUM",
+      "impact": "Aftermarket adhesive is visible at a seam.",
+      "trustRelevant": true,
+      "annotationRule": "Glue visible at a panel seam, or a seam bead of uneven width.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 35,
+      "id": "PRY_MARK",
+      "group": "REPAIR_INDICATOR",
+      "label": "Pry mark",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.2,
+      "findingSeverity": "MEDIUM",
+      "impact": "Tool marks at a seam; the device has been opened.",
+      "trustRelevant": true,
+      "annotationRule": "Short deformations or bright tool scars along a panel seam.",
+      "notToBeConfusedWith": "Drop damage, which is not confined to the seam line."
+    },
+    {
+      "index": 36,
+      "id": "PANEL_GAP",
+      "group": "REPAIR_INDICATOR",
+      "label": "Uneven panel gap",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.25,
+      "findingSeverity": "MEDIUM",
+      "impact": "A panel is not seated to factory tolerance.",
+      "trustRelevant": true,
+      "annotationRule": "A seam whose width varies visibly along its length.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 37,
+      "id": "FINISH_MISMATCH",
+      "group": "REPAIR_INDICATOR",
+      "label": "Mismatched finish",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "FRAME",
+        "REAR_GLASS",
+        "REAR_CAMERA"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.25,
+      "findingSeverity": "MEDIUM",
+      "impact": "A component’s colour or texture does not match the rest of the device.",
+      "trustRelevant": true,
+      "annotationRule": "A part whose hue or gloss differs from the adjoining part in the same image under the same light.",
+      "notToBeConfusedWith": "A lighting gradient. Requires the difference to persist across two views."
+    },
+    {
+      "index": 38,
+      "id": "AFTERMARKET_MARKING",
+      "group": "REPAIR_INDICATOR",
+      "label": "Aftermarket marking",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "FRAME",
+        "REAR_GLASS"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.2,
+      "findingSeverity": "MEDIUM",
+      "impact": "A repair shop label, engraving or asset tag is present.",
+      "trustRelevant": true,
+      "annotationRule": "Any sticker, engraving or printed mark not applied by the manufacturer.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 39,
+      "id": "CORROSION",
+      "group": "CONTAMINATION",
+      "label": "Corrosion",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "CHARGE_PORT",
+        "FRAME"
+      ],
+      "geometry": "POLYGON",
+      "severityWeight": 0.6,
+      "findingSeverity": "HIGH",
+      "impact": "Oxidation present; strongly associated with liquid exposure.",
+      "trustRelevant": true,
+      "annotationRule": "Green, white or powdery deposits on metal, most often inside the charge port.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 40,
+      "id": "PORT_DEBRIS",
+      "group": "CONTAMINATION",
+      "label": "Port debris",
+      "nature": "COSMETIC",
+      "surfaces": [
+        "CHARGE_PORT"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.1,
+      "findingSeverity": "INFO",
+      "impact": "Lint or debris in the charge port; may prevent charging until cleared.",
+      "trustRelevant": false,
+      "annotationRule": "Compacted material inside the port cavity.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 41,
+      "id": "LIQUID_INDICATOR_TRIGGERED",
+      "group": "CONTAMINATION",
+      "label": "Liquid contact indicator triggered",
+      "nature": "PROVENANCE",
+      "surfaces": [
+        "FRAME"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.5,
+      "findingSeverity": "HIGH",
+      "impact": "Apple’s liquid contact indicator has been activated.",
+      "trustRelevant": true,
+      "annotationRule": "The indicator visible in the SIM aperture is red rather than white or silver. Requires the dedicated SIM-slot close-up.",
+      "notToBeConfusedWith": null
+    },
+    {
+      "index": 42,
+      "id": "UNCLASSIFIED_ANOMALY",
+      "group": "ANOMALY",
+      "label": "Unclassified anomaly",
+      "nature": "FUNCTIONAL",
+      "surfaces": [
+        "FRONT_GLASS",
+        "DISPLAY_ACTIVE_AREA",
+        "REAR_GLASS",
+        "FRAME",
+        "REAR_CAMERA",
+        "FRONT_CAMERA",
+        "CHARGE_PORT"
+      ],
+      "geometry": "BOX",
+      "severityWeight": 0.2,
+      "findingSeverity": "LOW",
+      "impact": "Something is present that does not match any known class.",
+      "trustRelevant": false,
+      "annotationRule": "Applied by a human reviewer only, never predicted at production confidence. Every instance is queued for taxonomy review: this class exists so that unknown damage is *recorded* rather than discarded, and a cluster of them is the signal that the taxonomy needs a new class.",
+      "notToBeConfusedWith": null
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "FRONT_GLASS",
+      "evidenceSubject": "DISPLAY"
+    },
+    {
+      "id": "DISPLAY_ACTIVE_AREA",
+      "evidenceSubject": "DISPLAY"
+    },
+    {
+      "id": "REAR_GLASS",
+      "evidenceSubject": "REAR_HOUSING"
+    },
+    {
+      "id": "FRAME",
+      "evidenceSubject": "FRAME"
+    },
+    {
+      "id": "REAR_CAMERA",
+      "evidenceSubject": "REAR_CAMERA"
+    },
+    {
+      "id": "FRONT_CAMERA",
+      "evidenceSubject": "FRONT_CAMERA"
+    },
+    {
+      "id": "CHARGE_PORT",
+      "evidenceSubject": "CHARGE_PORT"
+    }
+  ],
+  "views": [
+    {
+      "id": "FRONT",
+      "label": "Front",
+      "instruction": "Device flat, screen off, filling the frame. Angle the light so it does not reflect straight back into the lens.",
+      "surfaces": [
+        "FRONT_GLASS",
+        "FRAME",
+        "FRONT_CAMERA"
+      ],
+      "displayState": "OFF",
+      "required": true,
+      "minLongEdgePx": 1600,
+      "minSharpness": 120,
+      "maxCaptures": 3
+    },
+    {
+      "id": "BACK",
+      "label": "Back",
+      "instruction": "Device flat, rear panel filling the frame, camera module fully visible.",
+      "surfaces": [
+        "REAR_GLASS",
+        "FRAME",
+        "REAR_CAMERA"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": true,
+      "minLongEdgePx": 1600,
+      "minSharpness": 120,
+      "maxCaptures": 3
+    },
+    {
+      "id": "LEFT_EDGE",
+      "label": "Left edge",
+      "instruction": "Edge-on, volume buttons and SIM tray in frame, whole length visible.",
+      "surfaces": [
+        "FRAME"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": true,
+      "minLongEdgePx": 1200,
+      "minSharpness": 100,
+      "maxCaptures": 2
+    },
+    {
+      "id": "RIGHT_EDGE",
+      "label": "Right edge",
+      "instruction": "Edge-on, power button in frame, whole length visible.",
+      "surfaces": [
+        "FRAME"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": true,
+      "minLongEdgePx": 1200,
+      "minSharpness": 100,
+      "maxCaptures": 2
+    },
+    {
+      "id": "TOP_EDGE",
+      "label": "Top edge",
+      "instruction": "Top edge-on, whole length visible.",
+      "surfaces": [
+        "FRAME"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": false,
+      "minLongEdgePx": 1200,
+      "minSharpness": 100,
+      "maxCaptures": 2
+    },
+    {
+      "id": "BOTTOM_EDGE",
+      "label": "Bottom edge",
+      "instruction": "Bottom edge-on, charge port and both screw bosses clearly in frame. Get close enough to read the screw heads.",
+      "surfaces": [
+        "FRAME",
+        "CHARGE_PORT"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": true,
+      "minLongEdgePx": 1400,
+      "minSharpness": 140,
+      "maxCaptures": 2
+    },
+    {
+      "id": "CAMERA_MODULE",
+      "label": "Camera module",
+      "instruction": "Close on the camera bump, every lens in frame, no reflection across the glass.",
+      "surfaces": [
+        "REAR_CAMERA"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": true,
+      "minLongEdgePx": 1400,
+      "minSharpness": 160,
+      "maxCaptures": 3
+    },
+    {
+      "id": "DISPLAY_ON",
+      "label": "Display on",
+      "instruction": "Screen showing the DevDNA test pattern at full brightness, filling the frame, photographed square-on.",
+      "surfaces": [
+        "DISPLAY_ACTIVE_AREA"
+      ],
+      "displayState": "WHITE_FIELD",
+      "required": true,
+      "minLongEdgePx": 1600,
+      "minSharpness": 110,
+      "maxCaptures": 4
+    },
+    {
+      "id": "DISPLAY_OFF",
+      "label": "Display off",
+      "instruction": "Screen off, photographed square-on under diffuse light.",
+      "surfaces": [
+        "FRONT_GLASS"
+      ],
+      "displayState": "OFF",
+      "required": true,
+      "minLongEdgePx": 1600,
+      "minSharpness": 120,
+      "maxCaptures": 2
+    },
+    {
+      "id": "CLOSE_UP",
+      "label": "Close-up",
+      "instruction": "Close on the area of interest, filling at least half the frame.",
+      "surfaces": [
+        "FRONT_GLASS",
+        "DISPLAY_ACTIVE_AREA",
+        "REAR_GLASS",
+        "FRAME",
+        "REAR_CAMERA",
+        "FRONT_CAMERA",
+        "CHARGE_PORT"
+      ],
+      "displayState": "NOT_APPLICABLE",
+      "required": false,
+      "minLongEdgePx": 1400,
+      "minSharpness": 150,
+      "maxCaptures": 12
+    }
+  ]
+}
